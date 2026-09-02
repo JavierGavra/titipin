@@ -23,7 +23,6 @@ Pada tahap pencarian, jastiper membuka `SearchSession` dan membuat `SearchCheckI
 
 Pada tahap pengantaran, jastiper dapat mengirim lokasi presisi secara berkala dan pemesan melihat lokasi terakhir dengan status `live`, `stale`, atau `unavailable`. Pengiriman lokasi berhenti otomatis ketika transaksi `completed`, `unfulfilled`, atau `cancelled`. Kontrak hanya menyatakan koordinat, akurasi, waktu, dan status; Google Maps atau penyedia peta lain menjadi pilihan implementasi klien, bukan ketergantungan domain maupun kontrak.
 
-Tiga aktor bisnis utamanya adalah pemesan, jastiper, dan admin. Web Client digunakan pemesan dan admin dengan hak akses berbeda, Jastiper Mobile Client digunakan di lapangan, Handover Verification Device mencatat serah-terima, MCP Operations Client membuat rekomendasi peninjauan tanpa kewenangan tindakan konsekuensial, dan karakteristik Klien Kelompok Mitra dinyatakan belum diketahui.
 
 ## Alternatives considered
 
