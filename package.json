@@ -1,0 +1,28 @@
+{
+  "name": "titipin",
+  "version": "1.0.0",
+  "description": "1. **Ridlo Fanata Wicaksana** (NIM: 26/591572/NPA/20034)\r 2. **Javier Gavra Abhinaya** (NIM: 26/592020/NPA/20050)\r 3. **Nur Alif Maulana Syafrudin** (NIM: 26/591608/NPA/20042)",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JavierGavra/titipin.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/JavierGavra/titipin/issues"
+  },
+  "homepage": "https://github.com/JavierGavra/titipin#readme",
+  "devDependencies": {
+    "@redocly/cli": "^2.51.0"
+  }
+}

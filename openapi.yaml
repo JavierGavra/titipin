@@ -1,0 +1,2956 @@
+openapi: 3.1.0
+info:
+  title: Titipin API
+  version: 0.1.0
+  description: |
+    Titipin adalah platform yang menyediakan layanan 
+    titip barang dari luar negeri ke Indonesia.
+    All monetary amounts are integers in the minor unit
+    of the stated currency. Clients MUST ignore unknown
+    response fields.
+
+servers:
+  - url: https://api.titipin.example/v1
+    description: Production
+  - url: http://localhost:8080/v1
+    description: Local development
+
+
+tags:
+  - name: Requests
+    description: Item requests created by requesters.
+  - name: Offers
+    description: Offers submitted by verified shoppers.
+  - name: Assignments
+    description: The selected offer and active shopper assignment for a request.
+  - name: Payments
+    description: Simulated payments associated with assignments.
+  - name: Deliveries
+    description: Delivery tracking and receipt confirmation.
+  - name: Accounts
+    description: Limited account representations.
+  - name: Issues
+    description: Operational transaction issues handled by administrators.
+
+security:
+  - bearerAuth: []
+
+paths:
+  /requests:
+    get:
+      tags: [Requests]
+      operationId: listRequests
+      summary: List item requests
+      description: |
+        Returns a paginated collection of requests visible to the authenticated account.
+        The optional status filter only narrows the same resource type. Results are never unbounded.
+        An MCP operations client may read this collection but may not use it to perform a consequential action.
+      x-required-roles: [requester, jastiper, admin]
+      parameters:
+        - $ref: '#/components/parameters/RequestStatusQuery'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Paginated request collection.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestPage'
+              example:
+                items: []
+                page:
+                  limit: 10
+                  nextCursor: eyJvZmZzZXQiOjEwfQ
+                  hasMore: true
+        '400':
+          $ref: '#/components/responses/InvalidRequest400'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired401'
+        '403':
+          $ref: '#/components/responses/Forbidden403'
+        '500':
+          $ref: '#/components/responses/InternalError500'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable503'
+    post:
+      tags: [Requests]
+      operationId: createRequest
+      summary: Create an item request
+      description: |
+        Creates one request for an item, target store or area, budget, delivery address, and deadline.
+        The requester identity comes from the access token. This unsafe operation requires Idempotency-Key.
+      x-required-roles: [requester]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRequest'
+            example:
+              itemDescription: Hard-cover research notebook
+              quantity: 2
+              targetStoreOrArea: Gramedia Central Park
+              budget:
+                amount: 150000
+                currency: IDR
+              deliveryAddress: Jl. Palmerah Barat No. 12, Jakarta
+              deadline: '2026-09-05T18:00:00+07:00'
+      responses:
+        '201':
+          description: Request created. Identical retries return the stored response and identifier.
+          headers:
+            Location:
+              description: URI of the created request.
+              schema:
+                type: string
+                example: /v1/requests/req_51Fa93cD
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Request'
+              example:
+                requestId: req_51Fa93cD
+                requesterId: acc_req_7Kq91LmP
+                itemDescription: Hard-cover research notebook
+                quantity: 2
+                targetStoreOrArea: Gramedia Central Park
+                budget:
+                  amount: 150000
+                  currency: IDR
+                deliveryAddress: Jl. Palmerah Barat No. 12, Jakarta
+                deadline: '2026-09-05T18:00:00+07:00'
+                status: open
+                selectedOfferId: null
+                assignedJastiperId: null
+                createdAt: '2026-09-03T08:00:00+07:00'
+                updatedAt: '2026-09-03T08:00:00+07:00'
+        '400':
+          $ref: '#/components/responses/PostBadRequest400'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired401'
+        '403':
+          $ref: '#/components/responses/Forbidden403'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict409'
+        '422':
+          $ref: '#/components/responses/ValidationFailed422'
+        '500':
+          $ref: '#/components/responses/InternalError500'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable503'
+
+  /requests/{requestId}:
+    get:
+      tags: [Requests]
+      operationId: getRequest
+      summary: Get an item request
+      description: Returns one request and its current state. Clients must ignore unknown response fields.
+      x-required-roles: [requester, jastiper, admin]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Request representation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Request'
+              example:
+                requestId: req_51Fa93cD
+                requesterId: acc_req_7Kq91LmP
+                itemDescription: Hard-cover research notebook
+                quantity: 2
+                targetStoreOrArea: Gramedia Central Park
+                budget:
+                  amount: 150000
+                  currency: IDR
+                deliveryAddress: Jl. Palmerah Barat No. 12, Jakarta
+                deadline: '2026-09-05T18:00:00+07:00'
+                status: assigned
+                selectedOfferId: off_9Zx28LmQ
+                assignedJastiperId: acc_jas_2Rt71BnP
+                createdAt: '2026-09-03T08:00:00+07:00'
+                updatedAt: '2026-09-03T08:12:00+07:00'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired401'
+        '403':
+          $ref: '#/components/responses/Forbidden403'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound404'
+        '500':
+          $ref: '#/components/responses/InternalError500'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable503'
+
+  /requests/{requestId}/offers:
+    get:
+      tags: [Offers]
+      operationId: listRequestOffers
+      summary: List offers for a request
+      description: Returns a paginated collection of offers belonging to the request. The status filter only narrows offers.
+      x-required-roles: [requester, jastiper, admin]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/OfferStatusQuery'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Paginated offer collection.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferPage'
+              example:
+                items: []
+                page:
+                  limit: 10
+                  nextCursor: null
+                  hasMore: false
+        '400':
+          $ref: '#/components/responses/InvalidRequest400'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired401'
+        '403':
+          $ref: '#/components/responses/Forbidden403'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound404'
+        '500':
+          $ref: '#/components/responses/InternalError500'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable503'
+    post:
+      tags: [Offers]
+      operationId: createOffer
+      summary: Submit an offer
+      description: |
+        Creates an offer for an open request. Only a verified jastiper may submit an offer.
+        Stock is an observation at stockCheckedAt, not a managed store inventory resource.
+      x-required-roles: [jastiper]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOffer'
+            example:
+              itemPrice:
+                amount: 120000
+                currency: IDR
+              serviceFee:
+                amount: 15000
+                currency: IDR
+              deliveryFee:
+                amount: 10000
+                currency: IDR
+              estimatedArrivalAt: '2026-09-04T18:00:00+07:00'
+              stockCheckedAt: '2026-09-03T08:10:00+07:00'
+              expiresAt: '2026-09-03T12:00:00+07:00'
+              note: Item is available at the specified store.
+      responses:
+        '201':
+          description: Offer created.
+          headers:
+            Location:
+              description: URI of the created offer.
+              schema:
+                type: string
+                example: /v1/offers/off_9Zx28LmQ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Offer'
+              example:
+                offerId: off_9Zx28LmQ
+                requestId: req_51Fa93cD
+                jastiperId: acc_jas_2Rt71BnP
+                status: active
+                itemPrice:
+                  amount: 120000
+                  currency: IDR
+                serviceFee:
+                  amount: 15000
+                  currency: IDR
+                deliveryFee:
+                  amount: 10000
+                  currency: IDR
+                totalAmount:
+                  amount: 145000
+                  currency: IDR
+                estimatedArrivalAt: '2026-09-04T18:00:00+07:00'
+                stockCheckedAt: '2026-09-03T08:10:00+07:00'
+                expiresAt: '2026-09-03T12:00:00+07:00'
+                note: Item is available at the specified store.
+                createdAt: '2026-09-03T08:10:00+07:00'
+        '400':
+          $ref: '#/components/responses/PostBadRequest400'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired401'
+        '403':
+          $ref: '#/components/responses/Forbidden403'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound404'
+        '409':
+          $ref: '#/components/responses/InvalidStateOrIdempotency409'
+        '422':
+          $ref: '#/components/responses/ValidationFailed422'
+        '500':
+          $ref: '#/components/responses/InternalError500'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable503'
+
+  /offers/{offerId}:
+    get:
+      tags: [Offers]
+      operationId: getOffer
+      summary: Get an offer
+      description: Returns one offer representation.
+      x-required-roles: [requester, jastiper, admin]
+      parameters:
+        - $ref: '#/components/parameters/OfferId'
+      responses:
+        '200':
+          description: Offer representation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Offer'
+              example:
+                offerId: off_9Zx28LmQ
+                requestId: req_51Fa93cD
+                jastiperId: acc_jas_2Rt71BnP
+                status: active
+                itemPrice:
+                  amount: 120000
+                  currency: IDR
+                serviceFee:
+                  amount: 15000
+                  currency: IDR
+                deliveryFee:
+                  amount: 10000
+                  currency: IDR
+                totalAmount:
+                  amount: 145000
+                  currency: IDR
+                estimatedArrivalAt: '2026-09-04T18:00:00+07:00'
+                stockCheckedAt: '2026-09-03T08:10:00+07:00'
+                expiresAt: '2026-09-03T12:00:00+07:00'
+                note: Item is available at the specified store.
+                createdAt: '2026-09-03T08:10:00+07:00'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired401'
+        '403':
+          $ref: '#/components/responses/Forbidden403'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound404'
+        '500':
+          $ref: '#/components/responses/InternalError500'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable503'
+
+  /requests/{requestId}/assignments:
+    post:
+      tags: [Assignments]
+      operationId: createAssignment
+      summary: Select an offer
+      description: |
+        Selects exactly one active offer and creates the single active assignment for the request.
+        The service checks and changes state atomically. The request must be open, the offer must belong to it and remain active, and no assignment may already exist.
+      x-required-roles: [requester]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SelectOfferRequest'
+            example:
+              offerId: off_9Zx28LmQ
+      responses:
+        '201':
+          description: Assignment created and the request moved from open to assigned.
+          headers:
+            Location:
+              description: URI of the created assignment.
+              schema:
+                type: string
+                example: /v1/assignments/asg_3Bn71RtP
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assignment'
+              example:
+                assignmentId: asg_3Bn71RtP
+                requestId: req_51Fa93cD
+                offerId: off_9Zx28LmQ
+                assignedJastiperId: acc_jas_2Rt71BnP
+                status: active
+                assignedAt: '2026-09-03T08:12:00+07:00'
+                purchaseRecordedAt: null
+                completedAt: null
+                updatedAt: '2026-09-03T08:12:00+07:00'
+        '400':
+          $ref: '#/components/responses/PostBadRequest400'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired401'
+        '403':
+          $ref: '#/components/responses/Forbidden403'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound404'
+        '409':
+          $ref: '#/components/responses/AssignmentConflict409'
+        '422':
+          $ref: '#/components/responses/ValidationFailed422'
+        '500':
+          $ref: '#/components/responses/InternalError500'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable503'
+
+  /assignments/{assignmentId}:
+    get:
+      tags: [Assignments]
+      operationId: getAssignment
+      summary: Get an assignment
+      description: Returns the selected request, offer, and assigned jastiper references with the current assignment state.
+      x-required-roles: [requester, jastiper, admin]
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+      responses:
+        '200':
+          description: Assignment representation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assignment'
+              example:
+                assignmentId: asg_3Bn71RtP
+                requestId: req_51Fa93cD
+                offerId: off_9Zx28LmQ
+                assignedJastiperId: acc_jas_2Rt71BnP
+                status: purchased
+                assignedAt: '2026-09-03T08:12:00+07:00'
+                purchaseRecordedAt: '2026-09-03T08:30:00+07:00'
+                completedAt: null
+                updatedAt: '2026-09-03T08:30:00+07:00'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired401'
+        '403':
+          $ref: '#/components/responses/Forbidden403'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound404'
+        '500':
+          $ref: '#/components/responses/InternalError500'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable503'
+
+  /assignments/{assignmentId}/payments:
+    post:
+      tags: [Payments]
+      operationId: createPayment
+      summary: Create a simulated payment
+      description: Creates one simulated payment. The service calculates the amount from the selected offer. A declined simulation returns 422 as a domain result.
+      x-required-roles: [requester]
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePayment'
+            example:
+              method: simulated_card
+      responses:
+        '201':
+          description: Simulated payment created.
+          headers:
+            Location:
+              description: URI of the created payment.
+              schema:
+                type: string
+                example: /v1/payments/pay_4Lm82QwX
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+              example:
+                paymentId: pay_4Lm82QwX
+                assignmentId: asg_3Bn71RtP
+                amount:
+                  amount: 145000
+                  currency: IDR
+                method: simulated_card
+                status: succeeded
+                failureReasonCode: null
+                createdAt: '2026-09-03T08:35:00+07:00'
+                updatedAt: '2026-09-03T08:35:01+07:00'
+                refundedAt: null
+        '400':
+          $ref: '#/components/responses/PostBadRequest400'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired401'
+        '403':
+          $ref: '#/components/responses/Forbidden403'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound404'
+        '409':
+          $ref: '#/components/responses/InvalidStateOrIdempotency409'
+        '422':
+          $ref: '#/components/responses/PaymentValidationOrDeclined422'
+        '500':
+          $ref: '#/components/responses/InternalError500'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable503'
+
+  /payments/{paymentId}:
+    get:
+      tags: [Payments]
+      operationId: getPayment
+      summary: Get a simulated payment
+      description: Returns a simulated payment representation and does not claim settlement with a real provider.
+      x-required-roles: [requester, jastiper, admin]
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+      responses:
+        '200':
+          description: Payment representation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+              example:
+                paymentId: pay_4Lm82QwX
+                assignmentId: asg_3Bn71RtP
+                amount:
+                  amount: 145000
+                  currency: IDR
+                method: simulated_card
+                status: succeeded
+                failureReasonCode: null
+                createdAt: '2026-09-03T08:35:00+07:00'
+                updatedAt: '2026-09-03T08:35:01+07:00'
+                refundedAt: null
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired401'
+        '403':
+          $ref: '#/components/responses/Forbidden403'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound404'
+        '500':
+          $ref: '#/components/responses/InternalError500'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable503'
+
+  /assignments/{assignmentId}/deliveries:
+    post:
+      tags: [Deliveries]
+      operationId: createDelivery
+      summary: Create a delivery
+      description: |
+        Creates one delivery after the simulated payment succeeds. The request records when the jastiper purchased the item.
+        This contract stores no purchase receipt or stock evidence. If the item is unavailable after assignment, the service returns item-unavailable and handles the simulated refund according to Payment state.
+      x-required-roles: [jastiper]
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDelivery'
+            example:
+              purchaseRecordedAt: '2026-09-03T08:30:00+07:00'
+      responses:
+        '201':
+          description: Delivery created.
+          headers:
+            Location:
+              description: URI of the created delivery.
+              schema:
+                type: string
+                example: /v1/deliveries/dlv_8Qp21HsM
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Delivery'
+              example:
+                deliveryId: dlv_8Qp21HsM
+                assignmentId: asg_3Bn71RtP
+                status: pending
+                deliveryAddress: Jl. Palmerah Barat No. 12, Jakarta
+                lastLocation: null
+                createdAt: '2026-09-03T08:36:00+07:00'
+                startedAt: null
+                deliveredAt: null
+                confirmedAt: null
+        '400':
+          $ref: '#/components/responses/PostBadRequest400'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired401'
+        '403':
+          $ref: '#/components/responses/Forbidden403'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound404'
+        '409':
+          $ref: '#/components/responses/DeliveryConflict409'
+        '422':
+          $ref: '#/components/responses/ValidationFailed422'
+        '500':
+          $ref: '#/components/responses/InternalError500'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable503'
+
+  /deliveries/{deliveryId}:
+    get:
+      tags: [Deliveries]
+      operationId: getDelivery
+      summary: Get a delivery
+      description: Returns the assignment reference, delivery state, address, and latest accepted location.
+      x-required-roles: [requester, jastiper, admin]
+      parameters:
+        - $ref: '#/components/parameters/DeliveryId'
+      responses:
+        '200':
+          description: Delivery representation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Delivery'
+              example:
+                deliveryId: dlv_8Qp21HsM
+                assignmentId: asg_3Bn71RtP
+                status: in_transit
+                deliveryAddress: Jl. Palmerah Barat No. 12, Jakarta
+                lastLocation:
+                  latitude: -6.1889
+                  longitude: 106.7972
+                  recordedAt: '2026-09-03T08:45:00+07:00'
+                createdAt: '2026-09-03T08:36:00+07:00'
+                startedAt: '2026-09-03T08:40:00+07:00'
+                deliveredAt: null
+                confirmedAt: null
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired401'
+        '403':
+          $ref: '#/components/responses/Forbidden403'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound404'
+        '500':
+          $ref: '#/components/responses/InternalError500'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable503'
+
+  /deliveries/{deliveryId}/locations:
+    get:
+      tags: [Deliveries]
+      operationId: listLocationUpdates
+      summary: List delivery locations
+      description: Returns paginated location history for one delivery. Location history is limited to the delivery phase.
+      x-required-roles: [requester, jastiper, admin]
+      parameters:
+        - $ref: '#/components/parameters/DeliveryId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Paginated location history.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationUpdatePage'
+              example:
+                items: []
+                page:
+                  limit: 20
+                  nextCursor: null
+                  hasMore: false
+        '400':
+          $ref: '#/components/responses/InvalidRequest400'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired401'
+        '403':
+          $ref: '#/components/responses/Forbidden403'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound404'
+        '500':
+          $ref: '#/components/responses/InternalError500'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable503'
+    post:
+      tags: [Deliveries]
+      operationId: createLocationUpdate
+      summary: Submit a delivery location
+      description: |
+        Appends one location update during delivery. A tracking device may submit only coordinates and recordedAt through the delivery context.
+        The device cannot choose or change a transaction status. The service may move a pending delivery to in_transit after accepting its first valid location.
+      x-required-roles: [jastiper, tracking-device]
+      security:
+        - bearerAuth: []
+        - deviceAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DeliveryId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLocationUpdate'
+            example:
+              latitude: -6.1889
+              longitude: 106.7972
+              recordedAt: '2026-09-03T08:45:00+07:00'
+      responses:
+        '201':
+          description: Location update accepted.
+          headers:
+            Location:
+              description: URI of the created location update.
+              schema:
+                type: string
+                example: /v1/deliveries/dlv_8Qp21HsM/locations/loc_2Rt71BnP
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationUpdate'
+              example:
+                locationId: loc_2Rt71BnP
+                deliveryId: dlv_8Qp21HsM
+                latitude: -6.1889
+                longitude: 106.7972
+                recordedAt: '2026-09-03T08:45:00+07:00'
+                receivedAt: '2026-09-03T08:45:02+07:00'
+        '400':
+          $ref: '#/components/responses/PostBadRequest400'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired401'
+        '403':
+          $ref: '#/components/responses/Forbidden403'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound404'
+        '409':
+          $ref: '#/components/responses/InvalidStateOrIdempotency409'
+        '422':
+          $ref: '#/components/responses/ValidationFailed422'
+        '500':
+          $ref: '#/components/responses/InternalError500'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable503'
+
+  /deliveries/{deliveryId}/receipt-confirmations:
+    post:
+      tags: [Deliveries]
+      operationId: createReceiptConfirmation
+      summary: Confirm delivery receipt
+      description: Creates the single receipt confirmation. A second intent with a new key returns receipt-already-confirmed.
+      x-required-roles: [requester]
+      parameters:
+        - $ref: '#/components/parameters/DeliveryId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReceiptConfirmation'
+            example:
+              confirmedAt: '2026-09-04T17:50:00+07:00'
+              recipientName: Ridlo Fanata Wicaksana
+              note: Package received in good condition.
+      responses:
+        '201':
+          description: Receipt confirmation created. Related request and assignment become completed.
+          headers:
+            Location:
+              description: URI of the created receipt confirmation.
+              schema:
+                type: string
+                example: /v1/receipt-confirmations/rcp_6Hs42QwX
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceiptConfirmation'
+              example:
+                confirmationId: rcp_6Hs42QwX
+                deliveryId: dlv_8Qp21HsM
+                confirmedByAccountId: acc_req_7Kq91LmP
+                confirmedAt: '2026-09-04T17:50:00+07:00'
+                recipientName: Ridlo Fanata Wicaksana
+                note: Package received in good condition.
+        '400':
+          $ref: '#/components/responses/PostBadRequest400'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired401'
+        '403':
+          $ref: '#/components/responses/Forbidden403'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound404'
+        '409':
+          $ref: '#/components/responses/ReceiptConflict409'
+        '422':
+          $ref: '#/components/responses/ValidationFailed422'
+        '500':
+          $ref: '#/components/responses/InternalError500'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable503'
+
+  /receipt-confirmations/{confirmationId}:
+    get:
+      tags: [Deliveries]
+      operationId: getReceiptConfirmation
+      summary: Get a receipt confirmation
+      description: Returns one receipt confirmation representation.
+      x-required-roles: [requester, jastiper, admin]
+      parameters:
+        - $ref: '#/components/parameters/ConfirmationId'
+      responses:
+        '200':
+          description: Receipt confirmation representation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceiptConfirmation'
+              example:
+                confirmationId: rcp_6Hs42QwX
+                deliveryId: dlv_8Qp21HsM
+                confirmedByAccountId: acc_req_7Kq91LmP
+                confirmedAt: '2026-09-04T17:50:00+07:00'
+                recipientName: Ridlo Fanata Wicaksana
+                note: Package received in good condition.
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired401'
+        '403':
+          $ref: '#/components/responses/Forbidden403'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound404'
+        '500':
+          $ref: '#/components/responses/InternalError500'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable503'
+
+  /accounts/{accountId}:
+    get:
+      tags: [Accounts]
+      operationId: getAccount
+      summary: Get a limited account representation
+      description: Returns only fields allowed for the authenticated actor. Account management is outside this contract.
+      x-required-roles: [requester, jastiper, admin]
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: Limited account representation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+              example:
+                accountId: acc_jas_2Rt71BnP
+                displayName: Javier Gavra Abhinaya
+                role: jastiper
+                verificationStatus: verified
+                createdAt: '2026-08-30T10:00:00+07:00'
+                updatedAt: '2026-09-01T10:00:00+07:00'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired401'
+        '403':
+          $ref: '#/components/responses/Forbidden403'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound404'
+        '500':
+          $ref: '#/components/responses/InternalError500'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable503'
+
+  /issues:
+    get:
+      tags: [Issues]
+      operationId: listIssues
+      summary: List transaction issues
+      description: Returns a paginated collection of transaction issues visible to administrators. An MCP client may read but not resolve issues.
+      x-required-roles: [admin]
+      parameters:
+        - $ref: '#/components/parameters/IssueStatusQuery'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Paginated transaction issue collection.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssuePage'
+              example:
+                items: []
+                page:
+                  limit: 10
+                  nextCursor: null
+                  hasMore: false
+        '400':
+          $ref: '#/components/responses/InvalidRequest400'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired401'
+        '403':
+          $ref: '#/components/responses/Forbidden403'
+        '500':
+          $ref: '#/components/responses/InternalError500'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable503'
+    post:
+      tags: [Issues]
+      operationId: createIssue
+      summary: Create a transaction issue
+      description: Creates a limited operational issue for administrative attention. This is not a full dispute-resolution system.
+      x-required-roles: [requester, jastiper, admin]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateIssue'
+            example:
+              requestId: req_51Fa93cD
+              assignmentId: asg_3Bn71RtP
+              paymentId: pay_4Lm82QwX
+              deliveryId: null
+              category: payment
+              description: Payment was accepted but the delivery has not started.
+      responses:
+        '201':
+          description: Transaction issue created.
+          headers:
+            Location:
+              description: URI of the created issue.
+              schema:
+                type: string
+                example: /v1/issues/iss_7Lm21QwX
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionIssue'
+              example:
+                issueId: iss_7Lm21QwX
+                createdByAccountId: acc_req_7Kq91LmP
+                requestId: req_51Fa93cD
+                assignmentId: asg_3Bn71RtP
+                paymentId: pay_4Lm82QwX
+                deliveryId: null
+                category: payment
+                description: Payment was accepted but the delivery has not started.
+                status: open
+                notes: null
+                resolution: null
+                createdAt: '2026-09-03T09:00:00+07:00'
+                updatedAt: '2026-09-03T09:00:00+07:00'
+        '400':
+          $ref: '#/components/responses/PostBadRequest400'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired401'
+        '403':
+          $ref: '#/components/responses/Forbidden403'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound404'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict409'
+        '422':
+          $ref: '#/components/responses/ValidationFailed422'
+        '500':
+          $ref: '#/components/responses/InternalError500'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable503'
+
+  /issues/{issueId}:
+    get:
+      tags: [Issues]
+      operationId: getIssue
+      summary: Get a transaction issue
+      description: Returns one issue with its current status and related transaction references.
+      x-required-roles: [admin]
+      parameters:
+        - $ref: '#/components/parameters/IssueId'
+      responses:
+        '200':
+          description: Transaction issue representation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionIssue'
+              example:
+                issueId: iss_7Lm21QwX
+                createdByAccountId: acc_req_7Kq91LmP
+                requestId: req_51Fa93cD
+                assignmentId: asg_3Bn71RtP
+                paymentId: pay_4Lm82QwX
+                deliveryId: null
+                category: payment
+                description: Payment was accepted but the delivery has not started.
+                status: in_review
+                notes: Administrator is checking the payment and assignment state.
+                resolution: null
+                createdAt: '2026-09-03T09:00:00+07:00'
+                updatedAt: '2026-09-03T09:10:00+07:00'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired401'
+        '403':
+          $ref: '#/components/responses/Forbidden403'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound404'
+        '500':
+          $ref: '#/components/responses/InternalError500'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable503'
+
+  /issues/{issueId}/resolutions:
+    post:
+      tags: [Issues]
+      operationId: createIssueResolution
+      summary: Resolve a transaction issue
+      description: Creates one resolution for an issue and moves it to resolved. A resolved issue cannot receive another resolution with a new intent.
+      x-required-roles: [admin]
+      parameters:
+        - $ref: '#/components/parameters/IssueId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateIssueResolution'
+            example:
+              outcome: delivery_restarted
+              note: Assignment returned to the delivery queue.
+              resolvedAt: '2026-09-03T09:20:00+07:00'
+      responses:
+        '201':
+          description: Issue resolution created and the issue moved to resolved.
+          headers:
+            Location:
+              description: URI of the created resolution sub-resource.
+              schema:
+                type: string
+                example: /v1/issues/iss_7Lm21QwX/resolutions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionIssue'
+              example:
+                issueId: iss_7Lm21QwX
+                createdByAccountId: acc_req_7Kq91LmP
+                requestId: req_51Fa93cD
+                assignmentId: asg_3Bn71RtP
+                paymentId: pay_4Lm82QwX
+                deliveryId: null
+                category: payment
+                description: Payment was accepted but the delivery has not started.
+                status: resolved
+                notes: Assignment returned to the delivery queue.
+                resolution:
+                  outcome: delivery_restarted
+                  note: Assignment returned to the delivery queue.
+                  resolvedAt: '2026-09-03T09:20:00+07:00'
+                  resolvedByAccountId: acc_admin_1Qw72HsM
+                createdAt: '2026-09-03T09:00:00+07:00'
+                updatedAt: '2026-09-03T09:20:00+07:00'
+        '400':
+          $ref: '#/components/responses/PostBadRequest400'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired401'
+        '403':
+          $ref: '#/components/responses/Forbidden403'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound404'
+        '409':
+          $ref: '#/components/responses/IssueResolutionConflict409'
+        '422':
+          $ref: '#/components/responses/ValidationFailed422'
+        '500':
+          $ref: '#/components/responses/InternalError500'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable503'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Short-lived user access token. Browser and mobile clients must not use a shared client secret.
+    deviceAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: device-token
+      description: Revocable per-device credential limited to delivery location updates.
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: |
+        Canonical hyphenated UUID version 4. Generate it when the user confirms the action and reuse it unchanged with the same method, URI, and body for every retry of that intent.
+        The service retains the key and stored result for 24 hours from first receipt. Reuse with a different request returns 409 idempotency-key-reuse. An identical request still in progress returns 409 with Retry-After.
+      schema:
+        type: string
+        format: uuid
+        pattern: '^[0-9a-fA-F]{8}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+        example: 0f7c1b9e-3d21-4a6f-9c05-8e2b7d41a9f0
+    RequestId:
+      name: requestId
+      in: path
+      required: true
+      description: Opaque server-generated request identifier.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 64
+        example: req_51Fa93cD
+    OfferId:
+      name: offerId
+      in: path
+      required: true
+      description: Opaque server-generated offer identifier.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 64
+        example: off_9Zx28LmQ
+    AssignmentId:
+      name: assignmentId
+      in: path
+      required: true
+      description: Opaque server-generated assignment identifier.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 64
+        example: asg_3Bn71RtP
+    PaymentId:
+      name: paymentId
+      in: path
+      required: true
+      description: Opaque server-generated payment identifier.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 64
+        example: pay_4Lm82QwX
+    DeliveryId:
+      name: deliveryId
+      in: path
+      required: true
+      description: Opaque server-generated delivery identifier.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 64
+        example: dlv_8Qp21HsM
+    ConfirmationId:
+      name: confirmationId
+      in: path
+      required: true
+      description: Opaque server-generated receipt confirmation identifier.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 64
+        example: rcp_6Hs42QwX
+    AccountId:
+      name: accountId
+      in: path
+      required: true
+      description: Opaque account identifier.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 64
+        example: acc_jas_2Rt71BnP
+    IssueId:
+      name: issueId
+      in: path
+      required: true
+      description: Opaque server-generated transaction issue identifier.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 64
+        example: iss_7Lm21QwX
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Maximum number of items to return. The service applies a default and an upper bound.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+        example: 10
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque cursor returned by the previous page.
+      schema:
+        type: string
+        maxLength: 512
+        example: eyJvZmZzZXQiOjEwfQ
+    RequestStatusQuery:
+      name: status
+      in: query
+      required: false
+      description: Filters requests by one known status.
+      schema:
+        type: string
+        enum: [open, assigned, completed, expired, cancelled, unavailable]
+        example: open
+    OfferStatusQuery:
+      name: status
+      in: query
+      required: false
+      description: Filters offers by one known status.
+      schema:
+        type: string
+        enum: [active, selected, withdrawn, expired]
+        example: active
+    IssueStatusQuery:
+      name: status
+      in: query
+      required: false
+      description: Filters issues by one known status.
+      schema:
+        type: string
+        enum: [open, in_review, resolved]
+        example: open
+
+  responses:
+    InvalidRequest400:
+      description: The request could not be parsed or its query, header, or structure is invalid.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            invalidRequest:
+              summary: Invalid request
+              value:
+                type: 'https://api.titipin.example/problems/invalid-request'
+                title: Invalid request
+                status: 400
+                detail: The request body could not be parsed as valid JSON.
+                instance: /v1/requests
+                invalidParameters:
+                  - name: body
+                    location: body
+                    reason: malformed JSON
+    PostBadRequest400:
+      description: The POST request is invalid or its required Idempotency-Key is missing or malformed.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            invalidRequest:
+              summary: Invalid request
+              value:
+                type: 'https://api.titipin.example/problems/invalid-request'
+                title: Invalid request
+                status: 400
+                detail: The request body could not be parsed as valid JSON.
+                instance: /v1/requests
+                invalidParameters:
+                  - name: body
+                    location: body
+                    reason: malformed JSON
+            invalidIdempotencyKey:
+              summary: Invalid idempotency key
+              value:
+                type: 'https://api.titipin.example/problems/invalid-idempotency-key'
+                title: Invalid idempotency key
+                status: 400
+                detail: Idempotency-Key must be a canonical UUID version 4.
+                instance: /v1/requests
+                headerName: Idempotency-Key
+    AuthenticationRequired401:
+      description: Authentication is required or the supplied token is invalid, expired, or revoked.
+      headers:
+        WWW-Authenticate:
+          description: Authentication challenge.
+          schema:
+            type: string
+            example: Bearer
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: 'https://api.titipin.example/problems/authentication-required'
+            title: Authentication required
+            status: 401
+            detail: A valid access token is required.
+            instance: /v1/requests
+    Forbidden403:
+      description: The authenticated identity lacks the role or permission required for the operation.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: 'https://api.titipin.example/problems/forbidden'
+            title: Action is not permitted
+            status: 403
+            detail: The authenticated account does not have permission to perform this action.
+            instance: /v1/requests
+            requiredPermission: request:create
+    ResourceNotFound404:
+      description: The requested resource does not exist or cannot be disclosed to this actor.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: 'https://api.titipin.example/problems/resource-not-found'
+            title: Resource not found
+            status: 404
+            detail: The requested resource was not found.
+            instance: /v1/requests/req_51Fa93cD
+            resourceType: Request
+            resourceId: req_51Fa93cD
+    ValidationFailed422:
+      description: The JSON is valid, but one or more values violate a schema or domain constraint.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: 'https://api.titipin.example/problems/validation-failed'
+            title: Request validation failed
+            status: 422
+            detail: One or more request fields are invalid.
+            instance: /v1/requests
+            errors:
+              - field: quantity
+                code: minimum
+                message: quantity must be greater than or equal to 1
+    PaymentValidationOrDeclined422:
+      description: The payment request is invalid or the valid simulated payment was declined.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            validationFailed:
+              summary: Validation failed
+              value:
+                type: 'https://api.titipin.example/problems/validation-failed'
+                title: Request validation failed
+                status: 422
+                detail: One or more payment fields are invalid.
+                instance: /v1/assignments/asg_3Bn71RtP/payments
+                errors:
+                  - field: method
+                    code: enum
+                    message: method is not supported
+            paymentDeclined:
+              summary: Payment declined
+              value:
+                type: 'https://api.titipin.example/problems/payment-declined'
+                title: Payment was declined
+                status: 422
+                detail: The simulated payment was declined by the configured test outcome.
+                instance: /v1/assignments/asg_3Bn71RtP/payments
+                assignmentId: asg_3Bn71RtP
+                paymentId: pay_4Lm82QwX
+                reasonCode: simulated_decline
+    IdempotencyConflict409:
+      description: The idempotency key was reused for a different request or the identical original request is still processing.
+      headers:
+        Retry-After:
+          description: Present for idempotency-request-in-progress and omitted for other conflict types.
+          schema:
+            type: integer
+            minimum: 1
+            example: 2
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            idempotencyKeyReuse:
+              summary: Idempotency key reused for a different request
+              value:
+                type: 'https://api.titipin.example/problems/idempotency-key-reuse'
+                title: Idempotency key reused for a different request
+                status: 409
+                detail: The supplied Idempotency-Key is already bound to another request.
+                instance: /v1/requests
+                originalRequestUri: /v1/requests/req_51Fa93cD
+            idempotencyRequestInProgress:
+              summary: Original request still in progress
+              value:
+                type: 'https://api.titipin.example/problems/idempotency-request-in-progress'
+                title: The original request is still being processed
+                status: 409
+                detail: Retry the same request after the number of seconds stated in Retry-After.
+                instance: /v1/assignments/asg_3Bn71RtP/payments
+                retryAfterSeconds: 2
+    InvalidStateOrIdempotency409:
+      description: The operation is not allowed in the current state, or the idempotency key conflicts with an earlier request.
+      headers:
+        Retry-After:
+          description: Present only for idempotency-request-in-progress.
+          schema:
+            type: integer
+            minimum: 1
+            example: 2
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            invalidStateTransition:
+              summary: Invalid state transition
+              value:
+                type: 'https://api.titipin.example/problems/invalid-state-transition'
+                title: State transition is not allowed
+                status: 409
+                detail: The resource is not in a state that permits this operation.
+                instance: /v1/requests/req_51Fa93cD/offers
+                resourceType: Request
+                resourceId: req_51Fa93cD
+                currentStatus: assigned
+                allowedStatuses: [open]
+            idempotencyKeyReuse:
+              summary: Idempotency key reused for a different request
+              value:
+                type: 'https://api.titipin.example/problems/idempotency-key-reuse'
+                title: Idempotency key reused for a different request
+                status: 409
+                detail: The supplied Idempotency-Key is already bound to another request.
+                instance: /v1/requests/req_51Fa93cD/offers
+                originalRequestUri: /v1/requests/req_51Fa93cD/offers
+            idempotencyRequestInProgress:
+              summary: Original request still in progress
+              value:
+                type: 'https://api.titipin.example/problems/idempotency-request-in-progress'
+                title: The original request is still being processed
+                status: 409
+                detail: Retry the same request after the number of seconds stated in Retry-After.
+                instance: /v1/requests/req_51Fa93cD/offers
+                retryAfterSeconds: 2
+    AssignmentConflict409:
+      description: The request cannot receive another assignment or its idempotency key conflicts with an earlier request.
+      headers:
+        Retry-After:
+          description: Present only for idempotency-request-in-progress.
+          schema:
+            type: integer
+            minimum: 1
+            example: 2
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            invalidStateTransition:
+              summary: Invalid state transition
+              value:
+                type: 'https://api.titipin.example/problems/invalid-state-transition'
+                title: State transition is not allowed
+                status: 409
+                detail: The request is not open and cannot receive an assignment.
+                instance: /v1/requests/req_51Fa93cD/assignments
+                resourceType: Request
+                resourceId: req_51Fa93cD
+                currentStatus: expired
+                allowedStatuses: [open]
+            offerAlreadySelected:
+              summary: Offer already selected
+              value:
+                type: 'https://api.titipin.example/problems/offer-already-selected'
+                title: An offer has already been selected
+                status: 409
+                detail: Request req_51Fa93cD already has a selected offer.
+                instance: /v1/requests/req_51Fa93cD/assignments
+                requestId: req_51Fa93cD
+                selectedOfferId: off_9Zx28LmQ
+                assignmentId: asg_3Bn71RtP
+            idempotencyKeyReuse:
+              summary: Idempotency key reused for a different request
+              value:
+                type: 'https://api.titipin.example/problems/idempotency-key-reuse'
+                title: Idempotency key reused for a different request
+                status: 409
+                detail: The supplied Idempotency-Key is already bound to another request.
+                instance: /v1/requests/req_51Fa93cD/assignments
+                originalRequestUri: /v1/requests/req_51Fa93cD/assignments
+            idempotencyRequestInProgress:
+              summary: Original request still in progress
+              value:
+                type: 'https://api.titipin.example/problems/idempotency-request-in-progress'
+                title: The original request is still being processed
+                status: 409
+                detail: Retry the same request after the number of seconds stated in Retry-After.
+                instance: /v1/requests/req_51Fa93cD/assignments
+                retryAfterSeconds: 2
+    DeliveryConflict409:
+      description: Delivery creation is rejected because payment, item availability, state, or idempotency conditions are not satisfied.
+      headers:
+        Retry-After:
+          description: Present only for idempotency-request-in-progress.
+          schema:
+            type: integer
+            minimum: 1
+            example: 2
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            invalidStateTransition:
+              summary: Invalid state transition
+              value:
+                type: 'https://api.titipin.example/problems/invalid-state-transition'
+                title: State transition is not allowed
+                status: 409
+                detail: The assignment is not in a state that permits delivery creation.
+                instance: /v1/assignments/asg_3Bn71RtP/deliveries
+                resourceType: Assignment
+                resourceId: asg_3Bn71RtP
+                currentStatus: completed
+                allowedStatuses: [active, purchased]
+            paymentNotSucceeded:
+              summary: Payment has not succeeded
+              value:
+                type: 'https://api.titipin.example/problems/payment-not-succeeded'
+                title: Payment has not succeeded
+                status: 409
+                detail: The assignment does not have a succeeded payment.
+                instance: /v1/assignments/asg_3Bn71RtP/deliveries
+                assignmentId: asg_3Bn71RtP
+                paymentId: pay_4Lm82QwX
+                paymentStatus: declined
+            itemUnavailable:
+              summary: Requested item is unavailable
+              value:
+                type: 'https://api.titipin.example/problems/item-unavailable'
+                title: Requested item is unavailable
+                status: 409
+                detail: The jastiper could not obtain the requested item after assignment.
+                instance: /v1/assignments/asg_3Bn71RtP/deliveries
+                requestId: req_51Fa93cD
+                assignmentId: asg_3Bn71RtP
+                stockCheckedAt: '2026-09-03T08:30:00+07:00'
+            idempotencyKeyReuse:
+              summary: Idempotency key reused for a different request
+              value:
+                type: 'https://api.titipin.example/problems/idempotency-key-reuse'
+                title: Idempotency key reused for a different request
+                status: 409
+                detail: The supplied Idempotency-Key is already bound to another request.
+                instance: /v1/assignments/asg_3Bn71RtP/deliveries
+                originalRequestUri: /v1/assignments/asg_3Bn71RtP/deliveries
+            idempotencyRequestInProgress:
+              summary: Original request still in progress
+              value:
+                type: 'https://api.titipin.example/problems/idempotency-request-in-progress'
+                title: The original request is still being processed
+                status: 409
+                detail: Retry the same request after the number of seconds stated in Retry-After.
+                instance: /v1/assignments/asg_3Bn71RtP/deliveries
+                retryAfterSeconds: 2
+    ReceiptConflict409:
+      description: Receipt confirmation is rejected because delivery state, prior confirmation, or idempotency conditions are not satisfied.
+      headers:
+        Retry-After:
+          description: Present only for idempotency-request-in-progress.
+          schema:
+            type: integer
+            minimum: 1
+            example: 2
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            invalidStateTransition:
+              summary: Invalid state transition
+              value:
+                type: 'https://api.titipin.example/problems/invalid-state-transition'
+                title: State transition is not allowed
+                status: 409
+                detail: The delivery is not ready for receipt confirmation.
+                instance: /v1/deliveries/dlv_8Qp21HsM/receipt-confirmations
+                resourceType: Delivery
+                resourceId: dlv_8Qp21HsM
+                currentStatus: in_transit
+                allowedStatuses: [delivered]
+            receiptAlreadyConfirmed:
+              summary: Receipt already confirmed
+              value:
+                type: 'https://api.titipin.example/problems/receipt-already-confirmed'
+                title: Delivery receipt has already been confirmed
+                status: 409
+                detail: This delivery already has a receipt confirmation.
+                instance: /v1/deliveries/dlv_8Qp21HsM/receipt-confirmations
+                deliveryId: dlv_8Qp21HsM
+                confirmationId: rcp_6Hs42QwX
+                confirmedAt: '2026-09-04T17:50:00+07:00'
+            idempotencyKeyReuse:
+              summary: Idempotency key reused for a different request
+              value:
+                type: 'https://api.titipin.example/problems/idempotency-key-reuse'
+                title: Idempotency key reused for a different request
+                status: 409
+                detail: The supplied Idempotency-Key is already bound to another request.
+                instance: /v1/deliveries/dlv_8Qp21HsM/receipt-confirmations
+                originalRequestUri: /v1/deliveries/dlv_8Qp21HsM/receipt-confirmations
+            idempotencyRequestInProgress:
+              summary: Original request still in progress
+              value:
+                type: 'https://api.titipin.example/problems/idempotency-request-in-progress'
+                title: The original request is still being processed
+                status: 409
+                detail: Retry the same request after the number of seconds stated in Retry-After.
+                instance: /v1/deliveries/dlv_8Qp21HsM/receipt-confirmations
+                retryAfterSeconds: 2
+    IssueResolutionConflict409:
+      description: Issue resolution is rejected because issue state, prior resolution, or idempotency conditions are not satisfied.
+      headers:
+        Retry-After:
+          description: Present only for idempotency-request-in-progress.
+          schema:
+            type: integer
+            minimum: 1
+            example: 2
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            invalidStateTransition:
+              summary: Invalid state transition
+              value:
+                type: 'https://api.titipin.example/problems/invalid-state-transition'
+                title: State transition is not allowed
+                status: 409
+                detail: The issue is not in a state that permits resolution.
+                instance: /v1/issues/iss_7Lm21QwX/resolutions
+                resourceType: TransactionIssue
+                resourceId: iss_7Lm21QwX
+                currentStatus: resolved
+                allowedStatuses: [open, in_review]
+            issueAlreadyResolved:
+              summary: Issue already resolved
+              value:
+                type: 'https://api.titipin.example/problems/issue-already-resolved'
+                title: Transaction issue is already resolved
+                status: 409
+                detail: The transaction issue already has a final resolution.
+                instance: /v1/issues/iss_7Lm21QwX/resolutions
+                issueId: iss_7Lm21QwX
+                resolvedAt: '2026-09-03T09:20:00+07:00'
+            idempotencyKeyReuse:
+              summary: Idempotency key reused for a different request
+              value:
+                type: 'https://api.titipin.example/problems/idempotency-key-reuse'
+                title: Idempotency key reused for a different request
+                status: 409
+                detail: The supplied Idempotency-Key is already bound to another request.
+                instance: /v1/issues/iss_7Lm21QwX/resolutions
+                originalRequestUri: /v1/issues/iss_7Lm21QwX/resolutions
+            idempotencyRequestInProgress:
+              summary: Original request still in progress
+              value:
+                type: 'https://api.titipin.example/problems/idempotency-request-in-progress'
+                title: The original request is still being processed
+                status: 409
+                detail: Retry the same request after the number of seconds stated in Retry-After.
+                instance: /v1/issues/iss_7Lm21QwX/resolutions
+                retryAfterSeconds: 2
+    InternalError500:
+      description: Unexpected internal service failure without internal implementation details.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: 'https://api.titipin.example/problems/internal-error'
+            title: An internal error occurred
+            status: 500
+            detail: The service could not complete the request.
+            instance: /v1/requests
+    ServiceUnavailable503:
+      description: The service or an important dependency is temporarily unavailable. Retry with exponential backoff and jitter.
+      headers:
+        Retry-After:
+          description: Suggested minimum delay before retrying, when available.
+          schema:
+            type: integer
+            minimum: 1
+            example: 10
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: 'https://api.titipin.example/problems/service-unavailable'
+            title: Service is temporarily unavailable
+            status: 503
+            detail: The service is temporarily unable to process the request.
+            instance: /v1/requests
+            retryAfterSeconds: 10
+
+  schemas:
+    Problem:
+      type: object
+      description: RFC 9457 Problem Details with documented extension members.
+      additionalProperties: true
+      required: [type, title, status, detail, instance]
+      properties:
+        type:
+          type: string
+          format: uri
+          description: Stable URI identifying the problem type.
+          example: 'https://api.titipin.example/problems/validation-failed'
+        title:
+          type: string
+          description: Stable human-readable summary for this problem type.
+          example: Request validation failed
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+          description: HTTP status code repeated in the problem body.
+          example: 422
+        detail:
+          type: string
+          description: Event-specific explanation without stack traces, SQL, hostnames, tokens, or credentials.
+          example: One or more request fields are invalid.
+        instance:
+          type: string
+          format: uri-reference
+          description: URI of the request or specific event that failed.
+          example: /v1/requests
+        invalidParameters:
+          type: array
+          description: Parameters that prevented the request from being parsed or processed.
+          items:
+            $ref: '#/components/schemas/InvalidParameter'
+          example:
+            - name: body
+              location: body
+              reason: malformed JSON
+        headerName:
+          type: string
+          description: Header associated with the problem.
+          example: Idempotency-Key
+        requiredPermission:
+          type: string
+          description: Permission needed for the operation.
+          example: request:create
+        resourceType:
+          type: string
+          description: Type of resource involved in the problem.
+          example: Request
+        resourceId:
+          type: string
+          description: Opaque identifier of the resource involved in the problem.
+          example: req_51Fa93cD
+        currentStatus:
+          type: string
+          description: Current resource status when a transition is rejected.
+          example: assigned
+        allowedStatuses:
+          type: array
+          description: Resource statuses that allow the attempted operation.
+          items:
+            type: string
+          example: [open]
+        requestId:
+          type: string
+          description: Opaque request identifier associated with the problem.
+          example: req_51Fa93cD
+        selectedOfferId:
+          type: string
+          description: Offer already selected for the request.
+          example: off_9Zx28LmQ
+        assignmentId:
+          type: string
+          description: Assignment identifier associated with the problem.
+          example: asg_3Bn71RtP
+        paymentId:
+          type: string
+          description: Payment identifier associated with the problem.
+          example: pay_4Lm82QwX
+        paymentStatus:
+          type: string
+          description: Current payment status associated with the problem.
+          example: declined
+        reasonCode:
+          type: string
+          description: Safe reason code associated with a declined simulated payment.
+          example: simulated_decline
+        stockCheckedAt:
+          type: string
+          format: date-time
+          description: Time at which stock was last checked.
+          example: '2026-09-03T08:30:00+07:00'
+        deliveryId:
+          type: string
+          description: Delivery identifier associated with the problem.
+          example: dlv_8Qp21HsM
+        confirmationId:
+          type: string
+          description: Receipt confirmation identifier associated with the problem.
+          example: rcp_6Hs42QwX
+        confirmedAt:
+          type: string
+          format: date-time
+          description: Time at which receipt was confirmed.
+          example: '2026-09-04T17:50:00+07:00'
+        issueId:
+          type: string
+          description: Transaction issue identifier associated with the problem.
+          example: iss_7Lm21QwX
+        resolvedAt:
+          type: string
+          format: date-time
+          description: Time at which an issue was resolved.
+          example: '2026-09-03T09:20:00+07:00'
+        originalRequestUri:
+          type: string
+          format: uri-reference
+          description: URI bound to the first use of an idempotency key.
+          example: /v1/requests/req_51Fa93cD
+        retryAfterSeconds:
+          type: integer
+          minimum: 1
+          description: Suggested retry delay in seconds.
+          example: 2
+        errors:
+          type: array
+          description: Field-level validation failures.
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          example:
+            - field: quantity
+              code: minimum
+              message: quantity must be greater than or equal to 1
+
+    InvalidParameter:
+      type: object
+      required: [name, location, reason]
+      properties:
+        name:
+          type: string
+          description: Name of the invalid parameter.
+          example: body
+        location:
+          type: string
+          enum: [path, query, header, body]
+          description: Location of the invalid parameter.
+          example: body
+        reason:
+          type: string
+          description: Safe explanation of why the parameter is invalid.
+          example: malformed JSON
+      example:
+        name: body
+        location: body
+        reason: malformed JSON
+
+    ValidationError:
+      type: object
+      required: [field, code, message]
+      properties:
+        field:
+          type: string
+          description: JSON field or query parameter that failed validation.
+          example: quantity
+        code:
+          type: string
+          description: Stable validation code.
+          example: minimum
+        message:
+          type: string
+          description: Human-readable validation message.
+          example: quantity must be greater than or equal to 1
+      example:
+        field: quantity
+        code: minimum
+        message: quantity must be greater than or equal to 1
+
+    Money:
+      type: object
+      description: Monetary value represented as an integer minor-unit amount and currency code.
+      required: [amount, currency]
+      properties:
+        amount:
+          type: integer
+          minimum: 0
+          description: Amount in the minor unit of the stated currency. For IDR this is the integer rupiah amount.
+          example: 150000
+        currency:
+          type: string
+          enum: [IDR]
+          description: ISO 4217 currency code for the amount.
+          example: IDR
+      example:
+        amount: 150000
+        currency: IDR
+
+    PageInfo:
+      type: object
+      required: [limit, nextCursor, hasMore]
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Number of items requested for the page.
+          example: 10
+        nextCursor:
+          type: [string, 'null']
+          description: Opaque cursor for the next page, or null when there is no next page.
+          example: eyJvZmZzZXQiOjEwfQ
+        hasMore:
+          type: boolean
+          description: Whether another page is available.
+          example: true
+      example:
+        limit: 10
+        nextCursor: eyJvZmZzZXQiOjEwfQ
+        hasMore: true
+
+    RequestStatus:
+      type: string
+      enum: [open, assigned, completed, expired, cancelled, unavailable]
+      description: Clients MUST treat an unrecognised value as non-terminal and MUST NOT crash or treat it as a terminal status.
+      example: open
+
+    OfferStatus:
+      type: string
+      enum: [active, selected, withdrawn, expired]
+      description: Clients MUST treat an unrecognised value as non-terminal and MUST NOT crash.
+      example: active
+
+    AssignmentStatus:
+      type: string
+      enum: [active, purchased, completed, cancelled, unavailable]
+      description: Clients MUST treat an unrecognised value as non-terminal and MUST NOT crash.
+      example: active
+
+    PaymentStatus:
+      type: string
+      enum: [pending, succeeded, declined, refunded]
+      description: Clients MUST treat an unrecognised value as non-terminal and MUST NOT crash.
+      example: succeeded
+
+    DeliveryStatus:
+      type: string
+      enum: [pending, in_transit, delivered, confirmed]
+      description: Clients MUST treat an unrecognised value as non-terminal and MUST NOT crash.
+      example: in_transit
+
+    IssueStatus:
+      type: string
+      enum: [open, in_review, resolved]
+      description: Clients MUST treat an unrecognised value as non-terminal and MUST NOT crash.
+      example: open
+
+    AccountRole:
+      type: string
+      enum: [requester, jastiper, admin]
+      description: Primary role used for authorization decisions in this contract.
+      example: jastiper
+
+    VerificationStatus:
+      type: string
+      enum: [unverified, pending, verified, suspended]
+      description: Jastiper verification state when returned to an authorized actor.
+      example: verified
+
+    Request:
+      type: object
+      additionalProperties: true
+      required: [requestId, requesterId, itemDescription, quantity, targetStoreOrArea, budget, deliveryAddress, deadline, status, selectedOfferId, assignedJastiperId, createdAt, updatedAt]
+      properties:
+        requestId:
+          type: string
+          description: Opaque server-generated request identifier.
+          example: req_51Fa93cD
+        requesterId:
+          type: string
+          description: Opaque account identifier of the requester.
+          example: acc_req_7Kq91LmP
+        itemDescription:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Human-readable description of the requested item.
+          example: Hard-cover research notebook
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+          description: Number of items requested.
+          example: 2
+        targetStoreOrArea:
+          type: string
+          minLength: 1
+          maxLength: 300
+          description: Store or area where the jastiper should check availability.
+          example: Gramedia Central Park
+        budget:
+          $ref: '#/components/schemas/Money'
+          description: Maximum budget for the requested purchase.
+          example:
+            amount: 150000
+            currency: IDR
+        deliveryAddress:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Address where the item should be delivered.
+          example: Jl. Palmerah Barat No. 12, Jakarta
+        deadline:
+          type: string
+          format: date-time
+          description: RFC 3339 deadline with timezone offset for fulfilling the request.
+          example: '2026-09-05T18:00:00+07:00'
+        status:
+          $ref: '#/components/schemas/RequestStatus'
+          description: Current request lifecycle status.
+          example: open
+        selectedOfferId:
+          type: [string, 'null']
+          description: Selected offer identifier, or null while the request is open.
+          example: null
+        assignedJastiperId:
+          type: [string, 'null']
+          description: Assigned jastiper account identifier, or null while the request is open.
+          example: null
+        createdAt:
+          type: string
+          format: date-time
+          description: RFC 3339 creation timestamp with timezone offset.
+          example: '2026-09-03T08:00:00+07:00'
+        updatedAt:
+          type: string
+          format: date-time
+          description: RFC 3339 last-update timestamp with timezone offset.
+          example: '2026-09-03T08:00:00+07:00'
+      example:
+        requestId: req_51Fa93cD
+        requesterId: acc_req_7Kq91LmP
+        itemDescription: Hard-cover research notebook
+        quantity: 2
+        targetStoreOrArea: Gramedia Central Park
+        budget:
+          amount: 150000
+          currency: IDR
+        deliveryAddress: Jl. Palmerah Barat No. 12, Jakarta
+        deadline: '2026-09-05T18:00:00+07:00'
+        status: open
+        selectedOfferId: null
+        assignedJastiperId: null
+        createdAt: '2026-09-03T08:00:00+07:00'
+        updatedAt: '2026-09-03T08:00:00+07:00'
+
+    CreateRequest:
+      type: object
+      additionalProperties: true
+      required: [itemDescription, quantity, targetStoreOrArea, budget, deliveryAddress, deadline]
+      properties:
+        itemDescription:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Human-readable description of the requested item.
+          example: Hard-cover research notebook
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+          description: Number of items requested.
+          example: 2
+        targetStoreOrArea:
+          type: string
+          minLength: 1
+          maxLength: 300
+          description: Store or area where the jastiper should check availability.
+          example: Gramedia Central Park
+        budget:
+          $ref: '#/components/schemas/Money'
+          description: Maximum budget for the requested purchase.
+          example:
+            amount: 150000
+            currency: IDR
+        deliveryAddress:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Address where the item should be delivered.
+          example: Jl. Palmerah Barat No. 12, Jakarta
+        deadline:
+          type: string
+          format: date-time
+          description: Future RFC 3339 deadline with timezone offset.
+          example: '2026-09-05T18:00:00+07:00'
+      example:
+        itemDescription: Hard-cover research notebook
+        quantity: 2
+        targetStoreOrArea: Gramedia Central Park
+        budget:
+          amount: 150000
+          currency: IDR
+        deliveryAddress: Jl. Palmerah Barat No. 12, Jakarta
+        deadline: '2026-09-05T18:00:00+07:00'
+
+    Offer:
+      type: object
+      additionalProperties: true
+      required: [offerId, requestId, jastiperId, status, itemPrice, serviceFee, deliveryFee, totalAmount, estimatedArrivalAt, stockCheckedAt, expiresAt, note, createdAt]
+      properties:
+        offerId:
+          type: string
+          description: Opaque server-generated offer identifier.
+          example: off_9Zx28LmQ
+        requestId:
+          type: string
+          description: Request to which the offer belongs.
+          example: req_51Fa93cD
+        jastiperId:
+          type: string
+          description: Account identifier of the verified jastiper who submitted the offer.
+          example: acc_jas_2Rt71BnP
+        status:
+          $ref: '#/components/schemas/OfferStatus'
+          description: Current offer lifecycle status.
+          example: active
+        itemPrice:
+          $ref: '#/components/schemas/Money'
+          description: Expected purchase price of the requested item.
+          example:
+            amount: 120000
+            currency: IDR
+        serviceFee:
+          $ref: '#/components/schemas/Money'
+          description: Simulated jastiper service fee.
+          example:
+            amount: 15000
+            currency: IDR
+        deliveryFee:
+          $ref: '#/components/schemas/Money'
+          description: Simulated delivery fee.
+          example:
+            amount: 10000
+            currency: IDR
+        totalAmount:
+          $ref: '#/components/schemas/Money'
+          description: Sum of item price, service fee, and delivery fee.
+          example:
+            amount: 145000
+            currency: IDR
+        estimatedArrivalAt:
+          type: string
+          format: date-time
+          description: Estimated delivery arrival time with timezone offset.
+          example: '2026-09-04T18:00:00+07:00'
+        stockCheckedAt:
+          type: string
+          format: date-time
+          description: Time at which the jastiper observed stock availability.
+          example: '2026-09-03T08:10:00+07:00'
+        expiresAt:
+          type: string
+          format: date-time
+          description: Time after which the offer is no longer active.
+          example: '2026-09-03T12:00:00+07:00'
+        note:
+          type: [string, 'null']
+          maxLength: 500
+          description: Optional human-readable note about the offer. No stock or purchase evidence is included.
+          example: Item is available at the specified store.
+        createdAt:
+          type: string
+          format: date-time
+          description: RFC 3339 offer creation timestamp with timezone offset.
+          example: '2026-09-03T08:10:00+07:00'
+      example:
+        offerId: off_9Zx28LmQ
+        requestId: req_51Fa93cD
+        jastiperId: acc_jas_2Rt71BnP
+        status: active
+        itemPrice:
+          amount: 120000
+          currency: IDR
+        serviceFee:
+          amount: 15000
+          currency: IDR
+        deliveryFee:
+          amount: 10000
+          currency: IDR
+        totalAmount:
+          amount: 145000
+          currency: IDR
+        estimatedArrivalAt: '2026-09-04T18:00:00+07:00'
+        stockCheckedAt: '2026-09-03T08:10:00+07:00'
+        expiresAt: '2026-09-03T12:00:00+07:00'
+        note: Item is available at the specified store.
+        createdAt: '2026-09-03T08:10:00+07:00'
+
+    CreateOffer:
+      type: object
+      additionalProperties: true
+      required: [itemPrice, serviceFee, deliveryFee, estimatedArrivalAt, stockCheckedAt, expiresAt]
+      properties:
+        itemPrice:
+          $ref: '#/components/schemas/Money'
+          description: Expected purchase price of the requested item.
+          example:
+            amount: 120000
+            currency: IDR
+        serviceFee:
+          $ref: '#/components/schemas/Money'
+          description: Simulated jastiper service fee.
+          example:
+            amount: 15000
+            currency: IDR
+        deliveryFee:
+          $ref: '#/components/schemas/Money'
+          description: Simulated delivery fee.
+          example:
+            amount: 10000
+            currency: IDR
+        estimatedArrivalAt:
+          type: string
+          format: date-time
+          description: Estimated delivery arrival time with timezone offset.
+          example: '2026-09-04T18:00:00+07:00'
+        stockCheckedAt:
+          type: string
+          format: date-time
+          description: Time at which the jastiper observed stock availability.
+          example: '2026-09-03T08:10:00+07:00'
+        expiresAt:
+          type: string
+          format: date-time
+          description: Time after which the offer is no longer active.
+          example: '2026-09-03T12:00:00+07:00'
+        note:
+          type: [string, 'null']
+          maxLength: 500
+          description: Optional human-readable note about the offer.
+          example: Item is available at the specified store.
+      example:
+        itemPrice:
+          amount: 120000
+          currency: IDR
+        serviceFee:
+          amount: 15000
+          currency: IDR
+        deliveryFee:
+          amount: 10000
+          currency: IDR
+        estimatedArrivalAt: '2026-09-04T18:00:00+07:00'
+        stockCheckedAt: '2026-09-03T08:10:00+07:00'
+        expiresAt: '2026-09-03T12:00:00+07:00'
+        note: Item is available at the specified store.
+
+    SelectOfferRequest:
+      type: object
+      additionalProperties: true
+      required: [offerId]
+      properties:
+        offerId:
+          type: string
+          description: Active offer selected by the requester.
+          example: off_9Zx28LmQ
+      example:
+        offerId: off_9Zx28LmQ
+
+    Assignment:
+      type: object
+      additionalProperties: true
+      required: [assignmentId, requestId, offerId, assignedJastiperId, status, assignedAt, purchaseRecordedAt, completedAt, updatedAt]
+      properties:
+        assignmentId:
+          type: string
+          description: Opaque server-generated assignment identifier.
+          example: asg_3Bn71RtP
+        requestId:
+          type: string
+          description: Request associated with the assignment.
+          example: req_51Fa93cD
+        offerId:
+          type: string
+          description: Selected offer associated with the assignment.
+          example: off_9Zx28LmQ
+        assignedJastiperId:
+          type: string
+          description: Jastiper account assigned to the request.
+          example: acc_jas_2Rt71BnP
+        status:
+          $ref: '#/components/schemas/AssignmentStatus'
+          description: Current assignment lifecycle status.
+          example: active
+        assignedAt:
+          type: string
+          format: date-time
+          description: RFC 3339 assignment creation timestamp with timezone offset.
+          example: '2026-09-03T08:12:00+07:00'
+        purchaseRecordedAt:
+          type: [string, 'null']
+          format: date-time
+          description: Time at which the purchase was recorded, or null before purchase. No receipt evidence is stored.
+          example: null
+        completedAt:
+          type: [string, 'null']
+          format: date-time
+          description: Time at which the requester confirmed receipt, or null before completion.
+          example: null
+        updatedAt:
+          type: string
+          format: date-time
+          description: RFC 3339 last-update timestamp with timezone offset.
+          example: '2026-09-03T08:12:00+07:00'
+      example:
+        assignmentId: asg_3Bn71RtP
+        requestId: req_51Fa93cD
+        offerId: off_9Zx28LmQ
+        assignedJastiperId: acc_jas_2Rt71BnP
+        status: active
+        assignedAt: '2026-09-03T08:12:00+07:00'
+        purchaseRecordedAt: null
+        completedAt: null
+        updatedAt: '2026-09-03T08:12:00+07:00'
+
+    CreatePayment:
+      type: object
+      additionalProperties: true
+      required: [method]
+      properties:
+        method:
+          type: string
+          enum: [simulated_card, simulated_bank_transfer]
+          description: Payment method used only for the simulation.
+          example: simulated_card
+      example:
+        method: simulated_card
+
+    Payment:
+      type: object
+      additionalProperties: true
+      required: [paymentId, assignmentId, amount, method, status, failureReasonCode, commission, createdAt, updatedAt, refundedAt]
+      properties:
+        paymentId:
+          type: string
+          description: Opaque server-generated payment identifier.
+          example: pay_4Lm82QwX
+        assignmentId:
+          type: string
+          description: Assignment associated with the payment.
+          example: asg_3Bn71RtP
+        amount:
+          $ref: '#/components/schemas/Money'
+          description: Amount processed by the simulated payment.
+          example:
+            amount: 145000
+            currency: IDR
+        method:
+          type: string
+          enum: [simulated_card, simulated_bank_transfer]
+          description: Simulated payment method.
+          example: simulated_card
+        status:
+          $ref: '#/components/schemas/PaymentStatus'
+          description: Current simulated payment status.
+          example: succeeded
+        failureReasonCode:
+          type: [string, 'null']
+          description: Safe reason code when payment is declined, or null otherwise.
+          example: null
+        commission:
+          oneOf:
+            - $ref: '#/components/schemas/Money'
+            - type: 'null'
+          description: Simulated commission derived from the transaction and returned only when the actor is authorized to view it. Commission is not a standalone resource.
+          example: null
+        createdAt:
+          type: string
+          format: date-time
+          description: RFC 3339 payment creation timestamp with timezone offset.
+          example: '2026-09-03T08:35:00+07:00'
+        updatedAt:
+          type: string
+          format: date-time
+          description: RFC 3339 last-update timestamp with timezone offset.
+          example: '2026-09-03T08:35:01+07:00'
+        refundedAt:
+          type: [string, 'null']
+          description: RFC 3339 refund timestamp, or null when no refund occurred.
+          example: null
+      example:
+        paymentId: pay_4Lm82QwX
+        assignmentId: asg_3Bn71RtP
+        amount:
+          amount: 145000
+          currency: IDR
+        method: simulated_card
+        status: succeeded
+        failureReasonCode: null
+        commission: null
+        createdAt: '2026-09-03T08:35:00+07:00'
+        updatedAt: '2026-09-03T08:35:01+07:00'
+        refundedAt: null
+
+    CreateDelivery:
+      type: object
+      additionalProperties: true
+      required: [purchaseRecordedAt]
+      properties:
+        purchaseRecordedAt:
+          type: string
+          format: date-time
+          description: RFC 3339 time at which the jastiper completed the purchase, with timezone offset. No purchase evidence is uploaded.
+          example: '2026-09-03T08:30:00+07:00'
+      example:
+        purchaseRecordedAt: '2026-09-03T08:30:00+07:00'
+
+    LocationPoint:
+      type: object
+      required: [latitude, longitude, recordedAt]
+      properties:
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+          description: WGS84 latitude in decimal degrees.
+          example: -6.1889
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+          description: WGS84 longitude in decimal degrees.
+          example: 106.7972
+        recordedAt:
+          type: string
+          format: date-time
+          description: RFC 3339 time when the device recorded the point, with timezone offset.
+          example: '2026-09-03T08:45:00+07:00'
+      example:
+        latitude: -6.1889
+        longitude: 106.7972
+        recordedAt: '2026-09-03T08:45:00+07:00'
+
+    Delivery:
+      type: object
+      additionalProperties: true
+      required: [deliveryId, assignmentId, status, deliveryAddress, lastLocation, createdAt, startedAt, deliveredAt, confirmedAt]
+      properties:
+        deliveryId:
+          type: string
+          description: Opaque server-generated delivery identifier.
+          example: dlv_8Qp21HsM
+        assignmentId:
+          type: string
+          description: Assignment associated with the delivery.
+          example: asg_3Bn71RtP
+        status:
+          $ref: '#/components/schemas/DeliveryStatus'
+          description: Current delivery lifecycle status.
+          example: pending
+        deliveryAddress:
+          type: string
+          description: Address copied from the request for delivery execution.
+          example: Jl. Palmerah Barat No. 12, Jakarta
+        lastLocation:
+          oneOf:
+            - $ref: '#/components/schemas/LocationPoint'
+            - type: 'null'
+          description: Latest accepted location, or null when no location has been received.
+          example: null
+        createdAt:
+          type: string
+          format: date-time
+          description: RFC 3339 delivery creation timestamp with timezone offset.
+          example: '2026-09-03T08:36:00+07:00'
+        startedAt:
+          type: [string, 'null']
+          description: RFC 3339 time when delivery entered in_transit, or null before departure.
+          example: null
+        deliveredAt:
+          type: [string, 'null']
+          description: RFC 3339 handoff time, or null before delivery handoff.
+          example: null
+        confirmedAt:
+          type: [string, 'null']
+          description: RFC 3339 requester confirmation time, or null before confirmation.
+          example: null
+      example:
+        deliveryId: dlv_8Qp21HsM
+        assignmentId: asg_3Bn71RtP
+        status: pending
+        deliveryAddress: Jl. Palmerah Barat No. 12, Jakarta
+        lastLocation: null
+        createdAt: '2026-09-03T08:36:00+07:00'
+        startedAt: null
+        deliveredAt: null
+        confirmedAt: null
+
+    CreateLocationUpdate:
+      type: object
+      additionalProperties: true
+      required: [latitude, longitude, recordedAt]
+      properties:
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+          description: WGS84 latitude in decimal degrees.
+          example: -6.1889
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+          description: WGS84 longitude in decimal degrees.
+          example: 106.7972
+        recordedAt:
+          type: string
+          format: date-time
+          description: RFC 3339 recording time with timezone offset.
+          example: '2026-09-03T08:45:00+07:00'
+      example:
+        latitude: -6.1889
+        longitude: 106.7972
+        recordedAt: '2026-09-03T08:45:00+07:00'
+
+    LocationUpdate:
+      type: object
+      additionalProperties: true
+      required: [locationId, deliveryId, latitude, longitude, recordedAt, receivedAt]
+      properties:
+        locationId:
+          type: string
+          description: Opaque server-generated location update identifier.
+          example: loc_2Rt71BnP
+        deliveryId:
+          type: string
+          description: Delivery associated with the location update.
+          example: dlv_8Qp21HsM
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+          description: WGS84 latitude in decimal degrees.
+          example: -6.1889
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+          description: WGS84 longitude in decimal degrees.
+          example: 106.7972
+        recordedAt:
+          type: string
+          format: date-time
+          description: RFC 3339 device recording time with timezone offset.
+          example: '2026-09-03T08:45:00+07:00'
+        receivedAt:
+          type: string
+          format: date-time
+          description: RFC 3339 service receipt time with timezone offset.
+          example: '2026-09-03T08:45:02+07:00'
+      example:
+        locationId: loc_2Rt71BnP
+        deliveryId: dlv_8Qp21HsM
+        latitude: -6.1889
+        longitude: 106.7972
+        recordedAt: '2026-09-03T08:45:00+07:00'
+        receivedAt: '2026-09-03T08:45:02+07:00'
+
+    CreateReceiptConfirmation:
+      type: object
+      additionalProperties: true
+      required: [confirmedAt, recipientName]
+      properties:
+        confirmedAt:
+          type: string
+          format: date-time
+          description: RFC 3339 time when the requester confirms receipt, with timezone offset.
+          example: '2026-09-04T17:50:00+07:00'
+        recipientName:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Name of the person receiving the item.
+          example: Ridlo Fanata Wicaksana
+        note:
+          type: [string, 'null']
+          maxLength: 500
+          description: Optional confirmation note.
+          example: Package received in good condition.
+      example:
+        confirmedAt: '2026-09-04T17:50:00+07:00'
+        recipientName: Ridlo Fanata Wicaksana
+        note: Package received in good condition.
+
+    ReceiptConfirmation:
+      type: object
+      additionalProperties: true
+      required: [confirmationId, deliveryId, confirmedByAccountId, confirmedAt, recipientName, note]
+      properties:
+        confirmationId:
+          type: string
+          description: Opaque server-generated receipt confirmation identifier.
+          example: rcp_6Hs42QwX
+        deliveryId:
+          type: string
+          description: Delivery that was confirmed.
+          example: dlv_8Qp21HsM
+        confirmedByAccountId:
+          type: string
+          description: Requester account that confirmed receipt.
+          example: acc_req_7Kq91LmP
+        confirmedAt:
+          type: string
+          format: date-time
+          description: RFC 3339 confirmation timestamp with timezone offset.
+          example: '2026-09-04T17:50:00+07:00'
+        recipientName:
+          type: string
+          description: Name of the person receiving the item.
+          example: Ridlo Fanata Wicaksana
+        note:
+          type: [string, 'null']
+          description: Confirmation note, or null when no note was supplied.
+          example: Package received in good condition.
+      example:
+        confirmationId: rcp_6Hs42QwX
+        deliveryId: dlv_8Qp21HsM
+        confirmedByAccountId: acc_req_7Kq91LmP
+        confirmedAt: '2026-09-04T17:50:00+07:00'
+        recipientName: Ridlo Fanata Wicaksana
+        note: Package received in good condition.
+
+    Account:
+      type: object
+      additionalProperties: true
+      required: [accountId, displayName, role, verificationStatus, createdAt, updatedAt]
+      properties:
+        accountId:
+          type: string
+          description: Opaque account identifier.
+          example: acc_jas_2Rt71BnP
+        displayName:
+          type: string
+          description: Display name allowed for the authenticated actor.
+          example: Javier Gavra Abhinaya
+        role:
+          $ref: '#/components/schemas/AccountRole'
+          description: Primary role used for this contract.
+          example: jastiper
+        verificationStatus:
+          $ref: '#/components/schemas/VerificationStatus'
+          description: Verification state relevant to jastiper authorization.
+          example: verified
+        createdAt:
+          type: string
+          format: date-time
+          description: RFC 3339 account creation timestamp with timezone offset.
+          example: '2026-08-30T10:00:00+07:00'
+        updatedAt:
+          type: string
+          format: date-time
+          description: RFC 3339 account last-update timestamp with timezone offset.
+          example: '2026-09-01T10:00:00+07:00'
+      example:
+        accountId: acc_jas_2Rt71BnP
+        displayName: Javier Gavra Abhinaya
+        role: jastiper
+        verificationStatus: verified
+        createdAt: '2026-08-30T10:00:00+07:00'
+        updatedAt: '2026-09-01T10:00:00+07:00'
+
+    CreateIssue:
+      type: object
+      additionalProperties: true
+      required: [requestId, assignmentId, paymentId, deliveryId, category, description]
+      properties:
+        requestId:
+          type: string
+          description: Request related to the issue.
+          example: req_51Fa93cD
+        assignmentId:
+          type: string
+          description: Assignment related to the issue.
+          example: asg_3Bn71RtP
+        paymentId:
+          type: string
+          description: Payment related to the issue.
+          example: pay_4Lm82QwX
+        deliveryId:
+          type: [string, 'null']
+          description: Delivery related to the issue, or null when not yet created.
+          example: null
+        category:
+          type: string
+          enum: [payment, availability, delivery, receipt, other]
+          description: Operational issue category.
+          example: payment
+        description:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: Human-readable description without secrets or internal implementation details.
+          example: Payment was accepted but the delivery has not started.
+      example:
+        requestId: req_51Fa93cD
+        assignmentId: asg_3Bn71RtP
+        paymentId: pay_4Lm82QwX
+        deliveryId: null
+        category: payment
+        description: Payment was accepted but the delivery has not started.
+
+    IssueResolution:
+      type: object
+      required: [outcome, note, resolvedAt, resolvedByAccountId]
+      properties:
+        outcome:
+          type: string
+          enum: [delivery_restarted, payment_refunded, request_cancelled, no_action]
+          description: Administrative outcome recorded for the issue.
+          example: delivery_restarted
+        note:
+          type: string
+          maxLength: 1000
+          description: Safe explanation of the administrative resolution.
+          example: Assignment returned to the delivery queue.
+        resolvedAt:
+          type: string
+          format: date-time
+          description: RFC 3339 resolution timestamp with timezone offset.
+          example: '2026-09-03T09:20:00+07:00'
+        resolvedByAccountId:
+          type: string
+          description: Administrator account that recorded the resolution.
+          example: acc_admin_1Qw72HsM
+      example:
+        outcome: delivery_restarted
+        note: Assignment returned to the delivery queue.
+        resolvedAt: '2026-09-03T09:20:00+07:00'
+        resolvedByAccountId: acc_admin_1Qw72HsM
+
+    CreateIssueResolution:
+      type: object
+      additionalProperties: true
+      required: [outcome, note, resolvedAt]
+      properties:
+        outcome:
+          type: string
+          enum: [delivery_restarted, payment_refunded, request_cancelled, no_action]
+          description: Administrative outcome to record.
+          example: delivery_restarted
+        note:
+          type: string
+          maxLength: 1000
+          description: Safe explanation of the administrative resolution.
+          example: Assignment returned to the delivery queue.
+        resolvedAt:
+          type: string
+          format: date-time
+          description: RFC 3339 resolution timestamp with timezone offset.
+          example: '2026-09-03T09:20:00+07:00'
+      example:
+        outcome: delivery_restarted
+        note: Assignment returned to the delivery queue.
+        resolvedAt: '2026-09-03T09:20:00+07:00'
+
+    TransactionIssue:
+      type: object
+      additionalProperties: true
+      required: [issueId, createdByAccountId, requestId, assignmentId, paymentId, deliveryId, category, description, status, notes, resolution, createdAt, updatedAt]
+      properties:
+        issueId:
+          type: string
+          description: Opaque server-generated issue identifier.
+          example: iss_7Lm21QwX
+        createdByAccountId:
+          type: string
+          description: Account that reported the issue.
+          example: acc_req_7Kq91LmP
+        requestId:
+          type: string
+          description: Request related to the issue.
+          example: req_51Fa93cD
+        assignmentId:
+          type: string
+          description: Assignment related to the issue.
+          example: asg_3Bn71RtP
+        paymentId:
+          type: string
+          description: Payment related to the issue.
+          example: pay_4Lm82QwX
+        deliveryId:
+          type: [string, 'null']
+          description: Delivery related to the issue, or null when not yet created.
+          example: null
+        category:
+          type: string
+          enum: [payment, availability, delivery, receipt, other]
+          description: Operational issue category.
+          example: payment
+        description:
+          type: string
+          description: Human-readable issue description.
+          example: Payment was accepted but the delivery has not started.
+        status:
+          $ref: '#/components/schemas/IssueStatus'
+          description: Current issue lifecycle status.
+          example: open
+        notes:
+          type: [string, 'null']
+          description: Latest administrative note, or null when no note has been added.
+          example: null
+        resolution:
+          oneOf:
+            - $ref: '#/components/schemas/IssueResolution'
+            - type: 'null'
+          description: Resolution details, or null while the issue is not resolved.
+          example: null
+        createdAt:
+          type: string
+          format: date-time
+          description: RFC 3339 issue creation timestamp with timezone offset.
+          example: '2026-09-03T09:00:00+07:00'
+        updatedAt:
+          type: string
+          format: date-time
+          description: RFC 3339 issue last-update timestamp with timezone offset.
+          example: '2026-09-03T09:00:00+07:00'
+      example:
+        issueId: iss_7Lm21QwX
+        createdByAccountId: acc_req_7Kq91LmP
+        requestId: req_51Fa93cD
+        assignmentId: asg_3Bn71RtP
+        paymentId: pay_4Lm82QwX
+        deliveryId: null
+        category: payment
+        description: Payment was accepted but the delivery has not started.
+        status: open
+        notes: null
+        resolution: null
+        createdAt: '2026-09-03T09:00:00+07:00'
+        updatedAt: '2026-09-03T09:00:00+07:00'
+
+    RequestPage:
+      type: object
+      additionalProperties: true
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          description: Requests in the page.
+          items:
+            $ref: '#/components/schemas/Request'
+          example: []
+        page:
+          $ref: '#/components/schemas/PageInfo'
+          description: Pagination metadata.
+          example:
+            limit: 10
+            nextCursor: eyJvZmZzZXQiOjEwfQ
+            hasMore: true
+      example:
+        items: []
+        page:
+          limit: 10
+          nextCursor: null
+          hasMore: false
+
+    OfferPage:
+      type: object
+      additionalProperties: true
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          description: Offers in the page.
+          items:
+            $ref: '#/components/schemas/Offer'
+          example: []
+        page:
+          $ref: '#/components/schemas/PageInfo'
+          description: Pagination metadata.
+          example:
+            limit: 10
+            nextCursor: null
+            hasMore: false
+      example:
+        items: []
+        page:
+          limit: 10
+          nextCursor: null
+          hasMore: false
+
+    LocationUpdatePage:
+      type: object
+      additionalProperties: true
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          description: Location updates in chronological order.
+          items:
+            $ref: '#/components/schemas/LocationUpdate'
+          example: []
+        page:
+          $ref: '#/components/schemas/PageInfo'
+          description: Pagination metadata.
+          example:
+            limit: 20
+            nextCursor: null
+            hasMore: false
+      example:
+        items: []
+        page:
+          limit: 20
+          nextCursor: null
+          hasMore: false
+
+    IssuePage:
+      type: object
+      additionalProperties: true
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          description: Transaction issues in the page.
+          items:
+            $ref: '#/components/schemas/TransactionIssue'
+          example: []
+        page:
+          $ref: '#/components/schemas/PageInfo'
+          description: Pagination metadata.
+          example:
+            limit: 10
+            nextCursor: null
+            hasMore: false
+      example:
+        items: []
+        page:
+          limit: 10
+          nextCursor: null
+          hasMore: false
