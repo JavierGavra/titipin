@@ -1,0 +1,12 @@
+# Dependency Node.js
+node_modules/
+
+# Konfigurasi environment lokal
+.env
+.env.*
+
+# Template environment tetap disimpan di Git
+!.env.example
+
+# Log npm
+npm-debug.log*
