@@ -27,7 +27,7 @@
   },
   "homepage": "https://github.com/JavierGavra/titipin#readme",
   "devDependencies": {
-    "@redocly/cli": "^2.51.0"
+    "@redocly/cli": "^2.51.2"
   },
   "dependencies": {
     "@neon/config": "^1.3.2",
