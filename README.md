@@ -38,20 +38,20 @@ Mock server tersedia di `http://127.0.0.1:4010`. Jalankan contoh berikut dari te
 
 ```bash
 # 1. Membaca request dengan filter
-curl -i "http://127.0.0.1:4010/requests?status=open&limit=20" \
-  -H "Authorization: Bearer demo-token"
+curl -i "http://127.0.0.1:4010/requests?status=open&limit=20"
 
 # 2. Membuat purchase request
 curl -i -X POST "http://127.0.0.1:4010/requests" \
-  -H "Authorization: Bearer demo-token" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: 0f7c1b9e-3d21-4a6f-9c05-8e2b7d41a9f0" \
   --data '{"requesterId":"22222222-2222-4222-8222-222222222222","itemName":"Kopi lokal","itemDescription":"Kopi arabika 250 gram","storeArea":"Bandung","budget":{"amount":150000,"currency":"IDR"},"deliveryAddress":"Jalan Merdeka 10, Bandung","deadline":"2026-09-10T12:00:00Z"}'
 
 # 3. Memilih offer untuk membuat assignment
 curl -i -X POST "http://127.0.0.1:4010/requests/11111111-1111-4111-8111-111111111111/assignments" \
-  -H "Authorization: Bearer demo-token" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: 1f7c1b9e-3d21-4a6f-9c05-8e2b7d41a9f1" \
   --data '{"offerId":"33333333-3333-4333-8333-333333333333"}'
 ```
+
+### Deployment URL
+`https://titipin-nine.vercel.app/`
