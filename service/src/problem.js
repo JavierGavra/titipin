@@ -21,25 +21,75 @@ const { randomUUID } = require('node:crypto');
         title: 'Service is temporarily unavailable',
         detail: 'The service is temporarily unable to process the request.',
     },
+    'invalid-idempotency-key': {
+      status: 400,
+      title: 'Invalid idempotency key',
+      detail: 'Idempotency-Key must be a canonical UUID version 4.',
+    },
+    'validation-failed': {
+      status: 422,
+      title: 'Request validation failed',
+      detail: 'One or more references cannot be used.',
+    },
+    'invalid-state-transition': {
+      status: 409,
+      title: 'State transition is not allowed',
+      detail: 'The resource state does not allow this operation.',
+    },
+    'offer-already-selected': {
+      status: 409,
+      title: 'An offer has already been selected',
+      detail: 'The request already has an assignment.',
+    },
+    'idempotency-key-reuse': {
+      status: 409,
+      title: 'Idempotency key reused for a different request',
+      detail: 'The supplied Idempotency-Key is already bound to another request.',
+    },
+    'idempotency-request-in-progress': {
+      status: 409,
+      title: 'The original request is still being processed',
+      detail: 'Retry the same request after the delay in Retry-After.',
+    },
 };
 
-function sendProblem(res, code, options = {}) {
+class ProblemError extends Error {
+  constructor(code, options = {}) {
+    super(options.detail ?? problems[code]?.detail ?? code);
+    this.name = 'ProblemError';
+    this.code = code;
+    this.options = options;
+  }
+}
+
+function buildProblem(code, options = {}) {
   const problem = problems[code];
 
   if (!problem) {
     throw new Error('Problem type belum terdaftar: ' + code);
   }
 
-  const instance = options.instance ?? 'urn:uuid:' + randomUUID();
-
-  return res.status(problem.status).type('application/problem+json').json({
+  return {
     ...options.extensions,
     type: 'https://api.titipin.example/problems/' + code,
     title: problem.title,
     status: problem.status,
     detail: options.detail ?? problem.detail,
-    instance,
-  });
+    instance: options.instance ?? 'urn:uuid:' + randomUUID(),
+  };
+}
+
+function sendProblem(res, code, options = {}) {
+  const body = buildProblem(code, options);
+
+  if (options.retryAfterSeconds !== undefined) {
+    res.set('Retry-After', String(options.retryAfterSeconds));
+  }
+
+  return res
+    .status(body.status)
+    .type('application/problem+json')
+    .json(body);
 }
 
 const bodyErrorTypes = new Set([
@@ -92,6 +142,9 @@ function isDependencyUnavailable(error, seen = new Set()) {
 function errorHandler(error, req, res, next) {
   if (res.headersSent) {
     return next(error);
+  }
+  if (error instanceof ProblemError) {
+  return sendProblem(res, error.code, error.options);
   }
   if (error instanceof URIError && error.status === 400) {
   return sendProblem(res, 'invalid-request', {
@@ -147,4 +200,9 @@ return sendProblem(res, 'internal-error', { instance });
 }
 
 
-module.exports = { sendProblem, errorHandler };
+module.exports = {
+  sendProblem,
+  errorHandler,
+  buildProblem,
+  ProblemError,
+};

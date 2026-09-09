@@ -1,3 +1,12 @@
+const {
+  validateSelectOfferBody,
+  validateIdempotencyKey,
+} = require('../schemas/assignments');
+
+const { createAssignment } = require('../store/assignments');
+const { toAssignment } = require('../representations/assignments');
+const { runIdempotent } = require('../store/idempotency');
+
 const express = require('express');
 const {
   validateRequestId,
@@ -49,6 +58,83 @@ router.get('/:requestId', async (req, res) => {
   }
 
   return res.status(200).json(toRequest(row));
+});
+
+router.post('/:requestId/assignments', async (req, res) => {
+  const invalidId = validateRequestId(req.params.requestId);
+
+  if (invalidId.length) {
+    return sendProblem(res, 'invalid-request', {
+      detail: 'The requestId path parameter is invalid.',
+      extensions: {
+        invalidParameters: invalidId,
+      },
+    });
+  }
+
+  const key = req.get('Idempotency-Key');
+  const invalidKey = validateIdempotencyKey(key);
+
+  if (invalidKey.length) {
+    return sendProblem(res, 'invalid-idempotency-key', {
+      extensions: {
+        headerName: 'Idempotency-Key',
+        invalidParameters: invalidKey,
+      },
+    });
+  }
+
+  if (!req.is('application/json')) {
+    return sendProblem(res, 'invalid-request', {
+      detail: 'Content-Type must be application/json.',
+      extensions: {
+        invalidParameters: [{
+          name: 'Content-Type',
+          location: 'header',
+          reason: 'Send a JSON body with Content-Type: application/json.',
+        }],
+      },
+    });
+  }
+
+  const invalidBody = validateSelectOfferBody(req.body);
+
+  if (invalidBody.length) {
+    return sendProblem(res, 'invalid-request', {
+      detail: 'The request body does not match SelectOfferRequest.',
+      extensions: {
+        invalidParameters: invalidBody,
+      },
+    });
+  }
+
+  const response = await runIdempotent({
+    key,
+    method: req.method,
+    uri: req.originalUrl,
+    body: req.body,
+
+    execute: async (client) => {
+      const row = await createAssignment(client, {
+        requestId: req.params.requestId,
+        offerId: req.body.offerId,
+      });
+
+      return {
+        status: 201,
+        headers: {
+          'Content-Type': 'application/json',
+          Location: '/v1/assignments/' + encodeURIComponent(row.assignment_id),
+        },
+        body: JSON.stringify(toAssignment(row)),
+      };
+    },
+  });
+
+  return res
+    .status(response.status)
+    .set(response.headers)
+    .send(response.body);
 });
 
 module.exports = router;
