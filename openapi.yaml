@@ -1462,7 +1462,6 @@ components:
                 resourceType: Request
                 resourceId: req_51Fa93cD
                 currentStatus: expired
-                allowedStatuses: [open]
             offerAlreadySelected:
               summary: Offer already selected
               value:

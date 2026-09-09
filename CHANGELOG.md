@@ -7,3 +7,4 @@
 ## 2026-09-09
 
 - Remove authentication temporarily 
+- Remove allowedStatuses 
