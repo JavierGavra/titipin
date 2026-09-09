@@ -32,8 +32,10 @@ if (require.main === module) {
   try {
     const config = loadConfig();
 
-    const server = app.listen(config.port, () => {
-      console.log(`Titipin service berjalan pada port ${config.port}`);
+    const server = app.listen(config.port, config.host, () => {
+      console.log(
+        `Titipin service berjalan pada ${config.host}:${config.port}`
+      );
     });
 
     server.on('error', (error) => {

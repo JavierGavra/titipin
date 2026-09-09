@@ -10,7 +10,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node --env-file-if-exists=service/.env service/src/app.js",
-    "dev": "node --watch --env-file-if-exists=service/.env service/src/app.js"
+    "dev": "node --watch --env-file-if-exists=service/.env service/src/app.js",
+    "db:check": "node --env-file-if-exists=service/.env service/src/store/db.js",
+    "db:schema": "node --env-file-if-exists=service/.env service/src/store/apply-schema.js"
   },
   "repository": {
     "type": "git",
@@ -28,7 +30,12 @@
     "@redocly/cli": "^2.51.0"
   },
   "dependencies": {
+    "@neon/config": "^1.3.2",
+    "@neon/env": "^1.2.3",
     "express": "^5.2.1",
     "pg": "^8.23.0"
+  },
+  "engines": {
+    "node": "24.x"
   }
 }
