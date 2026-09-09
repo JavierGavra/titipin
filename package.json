@@ -8,7 +8,9 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node --env-file-if-exists=service/.env service/src/app.js",
+    "dev": "node --watch --env-file-if-exists=service/.env service/src/app.js"
   },
   "repository": {
     "type": "git",
@@ -24,5 +26,9 @@
   "homepage": "https://github.com/JavierGavra/titipin#readme",
   "devDependencies": {
     "@redocly/cli": "^2.51.0"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "pg": "^8.23.0"
   }
 }
