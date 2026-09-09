@@ -32,8 +32,7 @@ tags:
   - name: Issues
     description: Operational transaction issues handled by administrators.
 
-security:
-  - bearerAuth: []
+security: []
 
 paths:
   /requests:
@@ -491,6 +490,7 @@ paths:
                 method: simulated_card
                 status: succeeded
                 failureReasonCode: null
+                commission: null
                 createdAt: '2026-09-03T08:35:00+07:00'
                 updatedAt: '2026-09-03T08:35:01+07:00'
                 refundedAt: null
@@ -536,6 +536,7 @@ paths:
                 method: simulated_card
                 status: succeeded
                 failureReasonCode: null
+                commission: null
                 createdAt: '2026-09-03T08:35:00+07:00'
                 updatedAt: '2026-09-03T08:35:01+07:00'
                 refundedAt: null
@@ -694,9 +695,7 @@ paths:
         Appends one location update during delivery. A tracking device may submit only coordinates and recordedAt through the delivery context.
         The device cannot choose or change a transaction status. The service may move a pending delivery to in_transit after accepting its first valid location.
       x-required-roles: [jastiper, tracking-device]
-      security:
-        - bearerAuth: []
-        - deviceAuth: []
+
       parameters:
         - $ref: '#/components/parameters/DeliveryId'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -1081,17 +1080,6 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable503'
 
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: Short-lived user access token. Browser and mobile clients must not use a shared client secret.
-    deviceAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: device-token
-      description: Revocable per-device credential limited to delivery location updates.
 
   parameters:
     IdempotencyKey:
@@ -1104,7 +1092,7 @@ components:
       schema:
         type: string
         format: uuid
-        pattern: '^[0-9a-fA-F]{8}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+        pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
         example: 0f7c1b9e-3d21-4a6f-9c05-8e2b7d41a9f0
     RequestId:
       name: requestId
