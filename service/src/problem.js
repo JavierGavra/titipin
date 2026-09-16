@@ -1,6 +1,17 @@
 const { randomUUID } = require('node:crypto');
+const { logger } = require('./logger');
 
     const problems = {
+    'authentication-required': {
+        status: 401,
+        title: 'Authentication required',
+        detail: 'A valid access token is required.',
+    },
+    'forbidden': {
+        status: 403,
+        title: 'Action is not permitted',
+        detail: 'The authenticated account does not have permission to perform this action.',
+    },
     'invalid-request': {
         status: 400,
         title: 'Invalid request',
@@ -69,6 +80,14 @@ function buildProblem(code, options = {}) {
     throw new Error('Problem type belum terdaftar: ' + code);
   }
 
+  // Byte-identical absent/foreign object responses, including instance.
+  if (code === 'resource-not-found') {
+    return {
+      type: 'https://api.titipin.example/problems/resource-not-found',
+      title: problem.title, status: problem.status, detail: problem.detail,
+      instance: 'urn:titipin:problem:resource-not-found',
+    };
+  }
   return {
     ...options.extensions,
     type: 'https://api.titipin.example/problems/' + code,
@@ -178,12 +197,13 @@ function errorHandler(error, req, res, next) {
 
   const instance = 'urn:uuid:' + randomUUID();
 
-  console.error({
+  logger.error({
     instance,
     method: req.method,
-    path: req.path,
-    error,
-  });
+    path: req.route?.path || '[unmatched]',
+    correlationId: req.correlationId,
+    reason: isDependencyUnavailable(error) ? 'dependency_unavailable' : 'internal_error',
+  }, 'request failed');
 
   if (isDependencyUnavailable(error)) {
   const retryAfterSeconds = 10;
@@ -200,7 +220,21 @@ return sendProblem(res, 'internal-error', { instance });
 }
 
 
+function unauthorized(res) {
+  res.set('WWW-Authenticate', 'Bearer error="invalid_token"');
+  res.set('Cache-Control', 'no-store');
+  return sendProblem(res, 'authentication-required');
+}
+
+function forbidden(res, needed) {
+  res.set('WWW-Authenticate', `Bearer error="insufficient_scope", scope="${needed.join(' ')}"`);
+  res.set('Cache-Control', 'no-store');
+  return sendProblem(res, 'forbidden', { extensions: { requiredPermission: needed.join(' ') } });
+}
+
 module.exports = {
+  unauthorized,
+  forbidden,
   sendProblem,
   errorHandler,
   buildProblem,

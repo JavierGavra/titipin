@@ -43,7 +43,7 @@ Header yang hilang atau tidak sesuai format menghasilkan `400 Bad Request` denga
 
 ## Cakupan dan Jendela Retensi
 
-Key dicatat dalam cakupan akun yang terautentikasi. Kombinasi akun dan key mengikat satu method, satu target URI, dan satu body request. Penggunaan key yang sama oleh akun yang sama untuk method, URI, atau body yang berbeda dianggap sebagai penggunaan ulang untuk maksud berbeda.
+Key dicatat dalam cakupan principal terverifikasi `(issuer, subject)`, yang dipetakan ke akun internal. Token baru dari login/refresh untuk principal yang sama tidak mengubah namespace. Kombinasi akun dan key mengikat satu method, satu target URI, dan satu body request. Penggunaan key yang sama oleh akun yang sama untuk method, URI, atau body yang berbeda dianggap sebagai penggunaan ulang untuk maksud berbeda.
 
 Service mempertahankan key beserta hasil request selama **24 jam sejak pertama kali key diterima**. Pengiriman ulang setelah masa retensi berakhir diperlakukan sebagai request baru. Karena itu, klien tidak boleh melakukan retry otomatis setelah 24 jam; klien harus lebih dahulu mengambil state resource terbaru atau meminta pengguna mengonfirmasi tindakan baru dengan key baru.
 
@@ -98,3 +98,12 @@ Retry-After: 2
 7. Setelah jendela 24 jam berakhir, periksa state resource sebelum menawarkan tindakan baru kepada pengguna.
 
 Idempotency hanya mencegah pengulangan request dengan key yang sama. Aturan bisnis tetap ditegakkan secara terpisah. Sebagai contoh, percobaan membuat ReceiptConfirmation kedua dengan key baru tetap harus ditolak sebagai domain rejection karena satu Delivery hanya boleh mempunyai satu konfirmasi penerimaan.
+
+## Tambahan P4: otorisasi sebelum replay
+
+Autentikasi dan scope diperiksa sebelum database. Handler memeriksa kepemilikan
+sebelum reservasi key, kemudian memeriksanya kembali di dalam transaksi sebelum
+replay atau mutasi. Pengguna lain tidak dapat mengambil respons tersimpan dengan
+menebak Idempotency-Key. Hak yang telah dicabut juga menutup akses replay.
+Reservasi singkat dan respons 409 + Retry-After untuk request yang masih diproses
+tetap menggunakan mekanisme P3. Mutasi dan responsnya dikomit bersama.

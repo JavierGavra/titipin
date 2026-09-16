@@ -53,5 +53,15 @@ curl -i -X POST "http://127.0.0.1:4010/requests/11111111-1111-4111-8111-11111111
   --data '{"offerId":"33333333-3333-4333-8333-333333333333"}'
 ```
 
-### Deployment URL
-`https://titipin-nine.vercel.app/`
+## Deployment P3
+
+- Service: Vercel.
+- Database: PostgreSQL pada Neon.
+- URL service: https://titipin-nine.vercel.app
+- Base URL API: https://titipin-nine.vercel.app/v1
+- Health endpoint: https://titipin-nine.vercel.app/health
+
+Service dapat mengalami cold start pada paket hosting gratis.
+
+Panduan implementasi dan status operasi tersedia di service/README.md.
+Keputusan implementasi tersedia di docs/decisions/0002-implementasi.md.
