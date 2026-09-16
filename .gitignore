@@ -13,3 +13,6 @@ npm-debug.log*
 
 # Kredensial Keycloak lokal
 .local/
+# Log aplikasi (dapat berisi data operasional)
+service/logs/
+*.log
