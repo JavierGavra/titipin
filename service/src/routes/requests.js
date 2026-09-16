@@ -1,3 +1,6 @@
+const { requireScope } = require('../auth/require-scope');
+const { mayReadRequest, maySelectOffer } = require('../auth/ownership');
+const { resolveActor } = require('../store/identities');
 const {
   validateSelectOfferBody,
   validateIdempotencyKey,
@@ -20,11 +23,11 @@ const {
   toRequest,
   toRequestPage,
 } = require('../representations/requests');
-const { sendProblem } = require('../problem');
+const { sendProblem, ProblemError } = require('../problem');
 
 const router = express.Router();
 
-router.get('/', async (req, res) => {
+router.get('/', requireScope('requests:read'), async (req, res) => {
   const { invalidParameters, value } = validateRequestQuery(req.query);
 
   if (invalidParameters.length > 0) {
@@ -34,12 +37,13 @@ router.get('/', async (req, res) => {
     });
   }
 
-  const rows = await listRequests(value);
+  const actor = await resolveActor(req.principal);
+  const rows = await listRequests(actor, value);
 
-  return res.status(200).json(toRequestPage(rows, value));
+  return res.status(200).json(toRequestPage(rows, value, actor));
 });
 
-router.get('/:requestId', async (req, res) => {
+router.get('/:requestId', requireScope('requests:read'), async (req, res) => {
   const invalidParameters = validateRequestId(req.params.requestId);
 
   if (invalidParameters.length > 0) {
@@ -49,18 +53,19 @@ router.get('/:requestId', async (req, res) => {
     });
   }
 
-  const row = await getRequestById(req.params.requestId);
+  const actor = await resolveActor(req.principal);
+  const row = await getRequestById(req.params.requestId, actor);
 
-  if (row === null) {
+  if (!mayReadRequest(actor, row)) { // mutation: request-owner
     return sendProblem(res, 'resource-not-found', {
       detail: 'The requested item request was not found.',
     });
   }
 
-  return res.status(200).json(toRequest(row));
+  return res.status(200).json(toRequest(row, actor));
 });
 
-router.post('/:requestId/assignments', async (req, res) => {
+router.post('/:requestId/assignments', requireScope('requests:write'), express.json(), async (req, res) => {
   const invalidId = validateRequestId(req.params.requestId);
 
   if (invalidId.length) {
@@ -108,7 +113,16 @@ router.post('/:requestId/assignments', async (req, res) => {
     });
   }
 
+  let request;
   const response = await runIdempotent({
+    principal: req.principal,
+    authorize: async (client, lock) => {
+      const actor = await resolveActor(req.principal, client);
+      request = await getRequestById(req.params.requestId, actor, client, lock);
+      if (!maySelectOffer(actor, request)) {
+        throw new ProblemError('resource-not-found');
+      }
+    },
     key,
     method: req.method,
     uri: req.originalUrl,
@@ -118,7 +132,7 @@ router.post('/:requestId/assignments', async (req, res) => {
       const row = await createAssignment(client, {
         requestId: req.params.requestId,
         offerId: req.body.offerId,
-      });
+      }, request);
 
       return {
         status: 201,

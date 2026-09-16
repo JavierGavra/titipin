@@ -1,5 +1,6 @@
 const { Pool } = require('pg')
 const { loadConfig } = require('../config')
+const { logger } = require('../logger')
 
 let pool
 
@@ -9,9 +10,7 @@ function getPool() {
     pool = new Pool(config.database)
 
     pool.on('error', (error) => {
-      console.error('Koneksi PostgreSQL yang sedang idle mengalami gangguan.', {
-        code: error.code || 'UNKNOWN',
-      })
+      logger.error({ reason: 'idle_connection_failed' }, 'Koneksi PostgreSQL mengalami gangguan.')
     })
   }
 
