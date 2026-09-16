@@ -1,0 +1,26 @@
+{
+  "recordedAt": "2026-09-16T23:02:29.166Z",
+  "issuer": "http://localhost:8081/realms/titipin",
+  "clientId": "titipin-web",
+  "flow": "Authorization Code + PKCE S256",
+  "settingsFromStep3Seed": {
+    "revokeRefreshToken": true,
+    "refreshTokenMaxReuse": 0
+  },
+  "activeSettings": {
+    "verified": true,
+    "revokeRefreshToken": true,
+    "refreshTokenMaxReuse": 0
+  },
+  "liveSettingsNote": "Read from the live development realm.",
+  "rt2DiffersFromRt1": true,
+  "reuseRt1": {
+    "status": 400,
+    "error": "invalid_grant"
+  },
+  "useRt2AfterReuse": {
+    "status": 400,
+    "error": "invalid_grant"
+  },
+  "pass": true
+}
