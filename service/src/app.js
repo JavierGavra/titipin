@@ -1,8 +1,10 @@
 const express = require('express');
 const { loadConfig } = require('./config');
 const { sendProblem, errorHandler } = require('./problem');
+const { authenticate } = require('./auth/authenticate');
 const requestRoutes = require('./routes/requests');
 const assignmentRoutes = require('./routes/assignments');
+const deliveryRoutes = require('./routes/deliveries');
 
 const app = express();
 
@@ -16,8 +18,9 @@ app.get('/health', (req, res) => {
 // Membaca body JSON sebelum diteruskan ke route API.
 app.use(express.json());
 
-app.use('/v1/requests', requestRoutes);
-app.use('/v1/assignments', assignmentRoutes);
+app.use('/v1/requests', authenticate, requestRoutes);
+app.use('/v1/assignments', authenticate, assignmentRoutes);
+app.use('/v1/deliveries', authenticate, deliveryRoutes);
 
 
 // Dijalankan jika tidak ada route yang menangani request.

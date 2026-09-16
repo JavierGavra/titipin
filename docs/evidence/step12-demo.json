@@ -1,0 +1,12 @@
+{
+  "recordedAt": "2026-09-16T23:24:01.621Z",
+  "baseUrl": "http://127.0.0.1:8080/v1",
+  "noToken": 401,
+  "modifiedToken": 401,
+  "missingScope": 403,
+  "foreignObject": 404,
+  "absentObject": 404,
+  "identical404Bodies": true,
+  "ownObject": 200,
+  "health": 200
+}

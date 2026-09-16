@@ -57,6 +57,11 @@ function loadConfig() {
       ),
       ssl: readSslConfig(),
     },
+    oidc: {
+      issuer: readRequired('OIDC_ISSUER').trim(),
+      jwksUri: readRequired('OIDC_JWKS_URI').trim(),
+      audience: readRequired('OIDC_AUDIENCE').trim(),
+    },
   };
 }
 
