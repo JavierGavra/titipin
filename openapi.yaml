@@ -1,10 +1,10 @@
 openapi: 3.1.0
 info:
   title: Titipin API
-  version: 0.1.0
+  version: 0.2.0
   description: |
-    Titipin adalah platform yang menyediakan layanan 
-    titip barang dari luar negeri ke Indonesia.
+    Titipin menyediakan jasa titip belanja lokal antara pemesan dan jastiper.
+    Protected operations require the declared OAuth2 scope and a separate object relationship check.
     All monetary amounts are integers in the minor unit
     of the stated currency. Clients MUST ignore unknown
     response fields.
@@ -17,6 +17,8 @@ servers:
 
 
 tags:
+  - name: Health
+    description: Public process health.
   - name: Requests
     description: Item requests created by requesters.
   - name: Offers
@@ -37,7 +39,11 @@ security:
 
 paths:
   /health:
+    servers:
+      - url: /
     get:
+      tags: [Health]
+      summary: Check process health
       operationId: health
       security: []
       responses:
@@ -75,6 +81,7 @@ paths:
         '400': { $ref: '#/components/responses/InvalidRequest400' }
         '401': { $ref: '#/components/responses/AuthenticationRequired401' }
         '403': { $ref: '#/components/responses/Forbidden403' }
+        '404': { $ref: '#/components/responses/ResourceNotFound404' }
         '500': { $ref: '#/components/responses/InternalError500' }
         '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
@@ -137,6 +144,7 @@ paths:
         '400': { $ref: '#/components/responses/PostBadRequest400' }
         '401': { $ref: '#/components/responses/AuthenticationRequired401' }
         '403': { $ref: '#/components/responses/Forbidden403' }
+        '404': { $ref: '#/components/responses/ResourceNotFound404' }
         '409': { $ref: '#/components/responses/IdempotencyConflict409' }
         '422': { $ref: '#/components/responses/ValidationFailed422' }
         '500': { $ref: '#/components/responses/InternalError500' }
@@ -149,7 +157,12 @@ paths:
       security:
         - oauth2: [requests:read]
       summary: Get an item request
-      description: Returns one request and its current state. Clients must ignore unknown response fields.
+      description: |
+        Returns a visible request. Unassigned verified jastipers can read unexpired
+        open requests, without requesterId or deliveryAddress. MCP readers receive
+        only explicitly assigned requests and the same restricted fields. Owners,
+        assigned jastipers and explicitly assigned admins receive the private fields.
+        Clients must ignore unknown response fields.
       x-required-roles: [requester, jastiper, admin]
       parameters:
         - $ref: '#/components/parameters/RequestId'
@@ -421,6 +434,7 @@ paths:
                 purchaseRecordedAt: '2026-09-03T08:30:00+07:00'
                 completedAt: null
                 updatedAt: '2026-09-03T08:30:00+07:00'
+        '400': { $ref: '#/components/responses/InvalidRequest400' }
         '401': { $ref: '#/components/responses/AuthenticationRequired401' }
         '403': { $ref: '#/components/responses/Forbidden403' }
         '404': { $ref: '#/components/responses/ResourceNotFound404' }
@@ -837,6 +851,7 @@ paths:
         '400': { $ref: '#/components/responses/InvalidRequest400' }
         '401': { $ref: '#/components/responses/AuthenticationRequired401' }
         '403': { $ref: '#/components/responses/Forbidden403' }
+        '404': { $ref: '#/components/responses/ResourceNotFound404' }
         '500': { $ref: '#/components/responses/InternalError500' }
         '503': { $ref: '#/components/responses/ServiceUnavailable503' }
     post:
@@ -941,7 +956,7 @@ paths:
       tags: [Issues]
       operationId: createIssueResolution
       security:
-        - oauth2: [issues:manage]
+        - oauth2: [issues:write]
       summary: Resolve a transaction issue
       description: Creates one resolution for an issue and moves it to resolved. A resolved issue cannot receive another resolution with a new intent.
       x-required-roles: [admin]
@@ -1004,12 +1019,14 @@ components:
       type: oauth2
       description: |
         Access tokens are issued by the Titipin authorisation server. Public
-        clients use Authorization Code + PKCE with no client secret.
+        clients use Authorization Code + PKCE S256 with no client secret.
+        URLs below describe the Step 3 local realm; publish the reachable HTTPS
+        issuer URLs before using this document with a deployed client.
       flows:
         authorizationCode:
-          authorizationUrl: https://auth.titipin.example/realms/titipin/protocol/openid-connect/auth
-          tokenUrl: https://auth.titipin.example/realms/titipin/protocol/openid-connect/token
-          refreshUrl: https://auth.titipin.example/realms/titipin/protocol/openid-connect/token
+          authorizationUrl: http://localhost:8081/realms/titipin/protocol/openid-connect/auth
+          tokenUrl: http://localhost:8081/realms/titipin/protocol/openid-connect/token
+          refreshUrl: http://localhost:8081/realms/titipin/protocol/openid-connect/token
           scopes:
             requests:read: Read requests, offers, assignments, deliveries, and receipt confirmations visible to the caller
             requests:write: Create and manage your own requests - place a request, select an offer, pay, and confirm receipt
@@ -1017,13 +1034,13 @@ components:
             deliveries:write: Submit delivery location updates, as a jastiper or a tracking device
             payments:read: Read payment records
             accounts:read: Read limited account representations
-            issues:read: Read transaction issues (administrator)
-            issues:write: Report a transaction issue
-            issues:manage: Investigate and resolve transaction issues (administrator)
+            issues:read: Read transaction issues assigned to the administrator or MCP reader
+            issues:write: Report own transaction issues or resolve assigned issues as an administrator
         clientCredentials:
-          tokenUrl: https://auth.titipin.example/realms/titipin/protocol/openid-connect/token
+          tokenUrl: http://localhost:8081/realms/titipin/protocol/openid-connect/token
           scopes:
-            payments:read: Read payment records for the reconciliation job
+            requests:read: Read transaction context explicitly assigned to the MCP service
+            issues:read: Read issues explicitly assigned to the MCP service
 
   parameters:
     IdempotencyKey:
@@ -1223,13 +1240,13 @@ components:
                 instance: /v1/requests
                 headerName: Idempotency-Key
     AuthenticationRequired401:
-      description: Authentication is required or the supplied token is invalid, expired, or revoked.
+      description: The access token is missing, unverifiable, expired, or has the wrong issuer or audience.
       headers:
         WWW-Authenticate:
           description: Authentication challenge.
           schema:
             type: string
-            example: Bearer
+            example: 'Bearer error="invalid_token"'
       content:
         application/problem+json:
           schema:
@@ -1241,7 +1258,11 @@ components:
             detail: A valid access token is required.
             instance: /v1/requests
     Forbidden403:
-      description: The authenticated identity lacks the role or permission required for the operation.
+      description: The token is valid but lacks the operation scope; no object is loaded.
+      headers:
+        WWW-Authenticate:
+          schema: { type: string }
+          example: 'Bearer error="insufficient_scope", scope="requests:write"'
       content:
         application/problem+json:
           schema:
@@ -1252,9 +1273,12 @@ components:
             status: 403
             detail: The authenticated account does not have permission to perform this action.
             instance: /v1/requests
-            requiredPermission: request:create
+            requiredPermission: requests:write
     ResourceNotFound404:
-      description: The requested resource does not exist or cannot be disclosed to this actor.
+      description: |
+        The object is absent or inaccessible to this caller. Both conditions
+        use the same status, type, title, detail and constant problem instance.
+        Resource identifiers and ownership hints are never included.
       content:
         application/problem+json:
           schema:
@@ -1264,9 +1288,7 @@ components:
             title: Resource not found
             status: 404
             detail: The requested resource was not found.
-            instance: /v1/requests/req_51Fa93cD
-            resourceType: Request
-            resourceId: req_51Fa93cD
+            instance: urn:titipin:problem:resource-not-found
     ValidationFailed422:
       description: The JSON is valid, but one or more values violate a schema or domain constraint.
       content:
@@ -1924,7 +1946,7 @@ components:
     Request:
       type: object
       additionalProperties: true
-      required: [requestId, requesterId, itemDescription, quantity, targetStoreOrArea, budget, deliveryAddress, deadline, status, selectedOfferId, assignedJastiperId, createdAt, updatedAt]
+      required: [requestId, itemDescription, quantity, targetStoreOrArea, budget, deadline, status, selectedOfferId, assignedJastiperId, createdAt, updatedAt]
       properties:
         requestId:
           type: string
@@ -1932,7 +1954,7 @@ components:
           example: req_51Fa93cD
         requesterId:
           type: string
-          description: Opaque account identifier of the requester.
+          description: Present for the owner, assigned jastiper, or assigned administrator only.
           example: acc_req_7Kq91LmP
         itemDescription:
           type: string
@@ -1962,7 +1984,7 @@ components:
           type: string
           minLength: 1
           maxLength: 500
-          description: Address where the item should be delivered.
+          description: Present for the owner, assigned jastiper, or assigned administrator only.
           example: Jl. Palmerah Barat No. 12, Jakarta
         deadline:
           type: string
