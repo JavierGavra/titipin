@@ -10,3 +10,6 @@ node_modules/
 
 # Log npm
 npm-debug.log*
+
+# Kredensial Keycloak lokal
+.local/
