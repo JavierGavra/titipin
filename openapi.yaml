@@ -32,13 +32,23 @@ tags:
   - name: Issues
     description: Operational transaction issues handled by administrators.
 
-security: []
+security:
+  - oauth2: [requests:read]
 
 paths:
+  /health:
+    get:
+      operationId: health
+      security: []
+      responses:
+        '200': { description: OK }
+
   /requests:
     get:
       tags: [Requests]
       operationId: listRequests
+      security:
+        - oauth2: [requests:read]
       summary: List item requests
       description: |
         Returns a paginated collection of requests visible to the authenticated account.
@@ -62,19 +72,17 @@ paths:
                   limit: 10
                   nextCursor: eyJvZmZzZXQiOjEwfQ
                   hasMore: true
-        '400':
-          $ref: '#/components/responses/InvalidRequest400'
-        '401':
-          $ref: '#/components/responses/AuthenticationRequired401'
-        '403':
-          $ref: '#/components/responses/Forbidden403'
-        '500':
-          $ref: '#/components/responses/InternalError500'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable503'
+        '400': { $ref: '#/components/responses/InvalidRequest400' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired401' }
+        '403': { $ref: '#/components/responses/Forbidden403' }
+        '500': { $ref: '#/components/responses/InternalError500' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable503' }
+
     post:
       tags: [Requests]
       operationId: createRequest
+      security:
+        - oauth2: [requests:write]
       summary: Create an item request
       description: |
         Creates one request for an item, target store or area, budget, delivery address, and deadline.
@@ -126,25 +134,20 @@ paths:
                 assignedJastiperId: null
                 createdAt: '2026-09-03T08:00:00+07:00'
                 updatedAt: '2026-09-03T08:00:00+07:00'
-        '400':
-          $ref: '#/components/responses/PostBadRequest400'
-        '401':
-          $ref: '#/components/responses/AuthenticationRequired401'
-        '403':
-          $ref: '#/components/responses/Forbidden403'
-        '409':
-          $ref: '#/components/responses/IdempotencyConflict409'
-        '422':
-          $ref: '#/components/responses/ValidationFailed422'
-        '500':
-          $ref: '#/components/responses/InternalError500'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable503'
+        '400': { $ref: '#/components/responses/PostBadRequest400' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired401' }
+        '403': { $ref: '#/components/responses/Forbidden403' }
+        '409': { $ref: '#/components/responses/IdempotencyConflict409' }
+        '422': { $ref: '#/components/responses/ValidationFailed422' }
+        '500': { $ref: '#/components/responses/InternalError500' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
   /requests/{requestId}:
     get:
       tags: [Requests]
       operationId: getRequest
+      security:
+        - oauth2: [requests:read]
       summary: Get an item request
       description: Returns one request and its current state. Clients must ignore unknown response fields.
       x-required-roles: [requester, jastiper, admin]
@@ -173,21 +176,18 @@ paths:
                 assignedJastiperId: acc_jas_2Rt71BnP
                 createdAt: '2026-09-03T08:00:00+07:00'
                 updatedAt: '2026-09-03T08:12:00+07:00'
-        '401':
-          $ref: '#/components/responses/AuthenticationRequired401'
-        '403':
-          $ref: '#/components/responses/Forbidden403'
-        '404':
-          $ref: '#/components/responses/ResourceNotFound404'
-        '500':
-          $ref: '#/components/responses/InternalError500'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable503'
+        '401': { $ref: '#/components/responses/AuthenticationRequired401' }
+        '403': { $ref: '#/components/responses/Forbidden403' }
+        '404': { $ref: '#/components/responses/ResourceNotFound404' }
+        '500': { $ref: '#/components/responses/InternalError500' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
   /requests/{requestId}/offers:
     get:
       tags: [Offers]
       operationId: listRequestOffers
+      security:
+        - oauth2: [requests:read]
       summary: List offers for a request
       description: Returns a paginated collection of offers belonging to the request. The status filter only narrows offers.
       x-required-roles: [requester, jastiper, admin]
@@ -209,21 +209,17 @@ paths:
                   limit: 10
                   nextCursor: null
                   hasMore: false
-        '400':
-          $ref: '#/components/responses/InvalidRequest400'
-        '401':
-          $ref: '#/components/responses/AuthenticationRequired401'
-        '403':
-          $ref: '#/components/responses/Forbidden403'
-        '404':
-          $ref: '#/components/responses/ResourceNotFound404'
-        '500':
-          $ref: '#/components/responses/InternalError500'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable503'
+        '400': { $ref: '#/components/responses/InvalidRequest400' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired401' }
+        '403': { $ref: '#/components/responses/Forbidden403' }
+        '404': { $ref: '#/components/responses/ResourceNotFound404' }
+        '500': { $ref: '#/components/responses/InternalError500' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable503' }
     post:
       tags: [Offers]
       operationId: createOffer
+      security:
+        - oauth2: [requests:fulfil]
       summary: Submit an offer
       description: |
         Creates an offer for an open request. Only a verified jastiper may submit an offer.
@@ -287,27 +283,21 @@ paths:
                 expiresAt: '2026-09-03T12:00:00+07:00'
                 note: Item is available at the specified store.
                 createdAt: '2026-09-03T08:10:00+07:00'
-        '400':
-          $ref: '#/components/responses/PostBadRequest400'
-        '401':
-          $ref: '#/components/responses/AuthenticationRequired401'
-        '403':
-          $ref: '#/components/responses/Forbidden403'
-        '404':
-          $ref: '#/components/responses/ResourceNotFound404'
-        '409':
-          $ref: '#/components/responses/InvalidStateOrIdempotency409'
-        '422':
-          $ref: '#/components/responses/ValidationFailed422'
-        '500':
-          $ref: '#/components/responses/InternalError500'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable503'
+        '400': { $ref: '#/components/responses/PostBadRequest400' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired401' }
+        '403': { $ref: '#/components/responses/Forbidden403' }
+        '404': { $ref: '#/components/responses/ResourceNotFound404' }
+        '409': { $ref: '#/components/responses/InvalidStateOrIdempotency409' }
+        '422': { $ref: '#/components/responses/ValidationFailed422' }
+        '500': { $ref: '#/components/responses/InternalError500' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
   /offers/{offerId}:
     get:
       tags: [Offers]
       operationId: getOffer
+      security:
+        - oauth2: [requests:read]
       summary: Get an offer
       description: Returns one offer representation.
       x-required-roles: [requester, jastiper, admin]
@@ -342,21 +332,18 @@ paths:
                 expiresAt: '2026-09-03T12:00:00+07:00'
                 note: Item is available at the specified store.
                 createdAt: '2026-09-03T08:10:00+07:00'
-        '401':
-          $ref: '#/components/responses/AuthenticationRequired401'
-        '403':
-          $ref: '#/components/responses/Forbidden403'
-        '404':
-          $ref: '#/components/responses/ResourceNotFound404'
-        '500':
-          $ref: '#/components/responses/InternalError500'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable503'
+        '401': { $ref: '#/components/responses/AuthenticationRequired401' }
+        '403': { $ref: '#/components/responses/Forbidden403' }
+        '404': { $ref: '#/components/responses/ResourceNotFound404' }
+        '500': { $ref: '#/components/responses/InternalError500' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
   /requests/{requestId}/assignments:
     post:
       tags: [Assignments]
       operationId: createAssignment
+      security:
+        - oauth2: [requests:write]
       summary: Select an offer
       description: |
         Selects exactly one active offer and creates the single active assignment for the request.
@@ -396,27 +383,21 @@ paths:
                 purchaseRecordedAt: null
                 completedAt: null
                 updatedAt: '2026-09-03T08:12:00+07:00'
-        '400':
-          $ref: '#/components/responses/PostBadRequest400'
-        '401':
-          $ref: '#/components/responses/AuthenticationRequired401'
-        '403':
-          $ref: '#/components/responses/Forbidden403'
-        '404':
-          $ref: '#/components/responses/ResourceNotFound404'
-        '409':
-          $ref: '#/components/responses/AssignmentConflict409'
-        '422':
-          $ref: '#/components/responses/ValidationFailed422'
-        '500':
-          $ref: '#/components/responses/InternalError500'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable503'
+        '400': { $ref: '#/components/responses/PostBadRequest400' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired401' }
+        '403': { $ref: '#/components/responses/Forbidden403' }
+        '404': { $ref: '#/components/responses/ResourceNotFound404' }
+        '409': { $ref: '#/components/responses/AssignmentConflict409' }
+        '422': { $ref: '#/components/responses/ValidationFailed422' }
+        '500': { $ref: '#/components/responses/InternalError500' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
   /assignments/{assignmentId}:
     get:
       tags: [Assignments]
       operationId: getAssignment
+      security:
+        - oauth2: [requests:read]
       summary: Get an assignment
       description: Returns the selected request, offer, and assigned jastiper references with the current assignment state.
       x-required-roles: [requester, jastiper, admin]
@@ -439,21 +420,18 @@ paths:
                 purchaseRecordedAt: '2026-09-03T08:30:00+07:00'
                 completedAt: null
                 updatedAt: '2026-09-03T08:30:00+07:00'
-        '401':
-          $ref: '#/components/responses/AuthenticationRequired401'
-        '403':
-          $ref: '#/components/responses/Forbidden403'
-        '404':
-          $ref: '#/components/responses/ResourceNotFound404'
-        '500':
-          $ref: '#/components/responses/InternalError500'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable503'
+        '401': { $ref: '#/components/responses/AuthenticationRequired401' }
+        '403': { $ref: '#/components/responses/Forbidden403' }
+        '404': { $ref: '#/components/responses/ResourceNotFound404' }
+        '500': { $ref: '#/components/responses/InternalError500' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
   /assignments/{assignmentId}/payments:
     post:
       tags: [Payments]
       operationId: createPayment
+      security:
+        - oauth2: [requests:write]
       summary: Create a simulated payment
       description: Creates one simulated payment. The service calculates the amount from the selected offer. A declined simulation returns 422 as a domain result.
       x-required-roles: [requester]
@@ -494,27 +472,21 @@ paths:
                 createdAt: '2026-09-03T08:35:00+07:00'
                 updatedAt: '2026-09-03T08:35:01+07:00'
                 refundedAt: null
-        '400':
-          $ref: '#/components/responses/PostBadRequest400'
-        '401':
-          $ref: '#/components/responses/AuthenticationRequired401'
-        '403':
-          $ref: '#/components/responses/Forbidden403'
-        '404':
-          $ref: '#/components/responses/ResourceNotFound404'
-        '409':
-          $ref: '#/components/responses/InvalidStateOrIdempotency409'
-        '422':
-          $ref: '#/components/responses/PaymentValidationOrDeclined422'
-        '500':
-          $ref: '#/components/responses/InternalError500'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable503'
+        '400': { $ref: '#/components/responses/PostBadRequest400' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired401' }
+        '403': { $ref: '#/components/responses/Forbidden403' }
+        '404': { $ref: '#/components/responses/ResourceNotFound404' }
+        '409': { $ref: '#/components/responses/InvalidStateOrIdempotency409' }
+        '422': { $ref: '#/components/responses/PaymentValidationOrDeclined422' }
+        '500': { $ref: '#/components/responses/InternalError500' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
   /payments/{paymentId}:
     get:
       tags: [Payments]
       operationId: getPayment
+      security:
+        - oauth2: [payments:read]
       summary: Get a simulated payment
       description: Returns a simulated payment representation and does not claim settlement with a real provider.
       x-required-roles: [requester, jastiper, admin]
@@ -540,21 +512,18 @@ paths:
                 createdAt: '2026-09-03T08:35:00+07:00'
                 updatedAt: '2026-09-03T08:35:01+07:00'
                 refundedAt: null
-        '401':
-          $ref: '#/components/responses/AuthenticationRequired401'
-        '403':
-          $ref: '#/components/responses/Forbidden403'
-        '404':
-          $ref: '#/components/responses/ResourceNotFound404'
-        '500':
-          $ref: '#/components/responses/InternalError500'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable503'
+        '401': { $ref: '#/components/responses/AuthenticationRequired401' }
+        '403': { $ref: '#/components/responses/Forbidden403' }
+        '404': { $ref: '#/components/responses/ResourceNotFound404' }
+        '500': { $ref: '#/components/responses/InternalError500' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
   /assignments/{assignmentId}/deliveries:
     post:
       tags: [Deliveries]
       operationId: createDelivery
+      security:
+        - oauth2: [requests:fulfil]
       summary: Create a delivery
       description: |
         Creates one delivery after the simulated payment succeeds. The request records when the jastiper purchased the item.
@@ -594,27 +563,21 @@ paths:
                 startedAt: null
                 deliveredAt: null
                 confirmedAt: null
-        '400':
-          $ref: '#/components/responses/PostBadRequest400'
-        '401':
-          $ref: '#/components/responses/AuthenticationRequired401'
-        '403':
-          $ref: '#/components/responses/Forbidden403'
-        '404':
-          $ref: '#/components/responses/ResourceNotFound404'
-        '409':
-          $ref: '#/components/responses/DeliveryConflict409'
-        '422':
-          $ref: '#/components/responses/ValidationFailed422'
-        '500':
-          $ref: '#/components/responses/InternalError500'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable503'
+        '400': { $ref: '#/components/responses/PostBadRequest400' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired401' }
+        '403': { $ref: '#/components/responses/Forbidden403' }
+        '404': { $ref: '#/components/responses/ResourceNotFound404' }
+        '409': { $ref: '#/components/responses/DeliveryConflict409' }
+        '422': { $ref: '#/components/responses/ValidationFailed422' }
+        '500': { $ref: '#/components/responses/InternalError500' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
   /deliveries/{deliveryId}:
     get:
       tags: [Deliveries]
       operationId: getDelivery
+      security:
+        - oauth2: [requests:read]
       summary: Get a delivery
       description: Returns the assignment reference, delivery state, address, and latest accepted location.
       x-required-roles: [requester, jastiper, admin]
@@ -640,21 +603,18 @@ paths:
                 startedAt: '2026-09-03T08:40:00+07:00'
                 deliveredAt: null
                 confirmedAt: null
-        '401':
-          $ref: '#/components/responses/AuthenticationRequired401'
-        '403':
-          $ref: '#/components/responses/Forbidden403'
-        '404':
-          $ref: '#/components/responses/ResourceNotFound404'
-        '500':
-          $ref: '#/components/responses/InternalError500'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable503'
+        '401': { $ref: '#/components/responses/AuthenticationRequired401' }
+        '403': { $ref: '#/components/responses/Forbidden403' }
+        '404': { $ref: '#/components/responses/ResourceNotFound404' }
+        '500': { $ref: '#/components/responses/InternalError500' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
   /deliveries/{deliveryId}/locations:
     get:
       tags: [Deliveries]
       operationId: listLocationUpdates
+      security:
+        - oauth2: [requests:read]
       summary: List delivery locations
       description: Returns paginated location history for one delivery. Location history is limited to the delivery phase.
       x-required-roles: [requester, jastiper, admin]
@@ -675,21 +635,17 @@ paths:
                   limit: 20
                   nextCursor: null
                   hasMore: false
-        '400':
-          $ref: '#/components/responses/InvalidRequest400'
-        '401':
-          $ref: '#/components/responses/AuthenticationRequired401'
-        '403':
-          $ref: '#/components/responses/Forbidden403'
-        '404':
-          $ref: '#/components/responses/ResourceNotFound404'
-        '500':
-          $ref: '#/components/responses/InternalError500'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable503'
+        '400': { $ref: '#/components/responses/InvalidRequest400' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired401' }
+        '403': { $ref: '#/components/responses/Forbidden403' }
+        '404': { $ref: '#/components/responses/ResourceNotFound404' }
+        '500': { $ref: '#/components/responses/InternalError500' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable503' }
     post:
       tags: [Deliveries]
       operationId: createLocationUpdate
+      security:
+        - oauth2: [deliveries:write]
       summary: Submit a delivery location
       description: |
         Appends one location update during delivery. A tracking device may submit only coordinates and recordedAt through the delivery context.
@@ -729,27 +685,21 @@ paths:
                 longitude: 106.7972
                 recordedAt: '2026-09-03T08:45:00+07:00'
                 receivedAt: '2026-09-03T08:45:02+07:00'
-        '400':
-          $ref: '#/components/responses/PostBadRequest400'
-        '401':
-          $ref: '#/components/responses/AuthenticationRequired401'
-        '403':
-          $ref: '#/components/responses/Forbidden403'
-        '404':
-          $ref: '#/components/responses/ResourceNotFound404'
-        '409':
-          $ref: '#/components/responses/InvalidStateOrIdempotency409'
-        '422':
-          $ref: '#/components/responses/ValidationFailed422'
-        '500':
-          $ref: '#/components/responses/InternalError500'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable503'
+        '400': { $ref: '#/components/responses/PostBadRequest400' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired401' }
+        '403': { $ref: '#/components/responses/Forbidden403' }
+        '404': { $ref: '#/components/responses/ResourceNotFound404' }
+        '409': { $ref: '#/components/responses/InvalidStateOrIdempotency409' }
+        '422': { $ref: '#/components/responses/ValidationFailed422' }
+        '500': { $ref: '#/components/responses/InternalError500' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
   /deliveries/{deliveryId}/receipt-confirmations:
     post:
       tags: [Deliveries]
       operationId: createReceiptConfirmation
+      security:
+        - oauth2: [requests:write]
       summary: Confirm delivery receipt
       description: Creates the single receipt confirmation. A second intent with a new key returns receipt-already-confirmed.
       x-required-roles: [requester]
@@ -786,27 +736,21 @@ paths:
                 confirmedAt: '2026-09-04T17:50:00+07:00'
                 recipientName: Ridlo Fanata Wicaksana
                 note: Package received in good condition.
-        '400':
-          $ref: '#/components/responses/PostBadRequest400'
-        '401':
-          $ref: '#/components/responses/AuthenticationRequired401'
-        '403':
-          $ref: '#/components/responses/Forbidden403'
-        '404':
-          $ref: '#/components/responses/ResourceNotFound404'
-        '409':
-          $ref: '#/components/responses/ReceiptConflict409'
-        '422':
-          $ref: '#/components/responses/ValidationFailed422'
-        '500':
-          $ref: '#/components/responses/InternalError500'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable503'
+        '400': { $ref: '#/components/responses/PostBadRequest400' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired401' }
+        '403': { $ref: '#/components/responses/Forbidden403' }
+        '404': { $ref: '#/components/responses/ResourceNotFound404' }
+        '409': { $ref: '#/components/responses/ReceiptConflict409' }
+        '422': { $ref: '#/components/responses/ValidationFailed422' }
+        '500': { $ref: '#/components/responses/InternalError500' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
   /receipt-confirmations/{confirmationId}:
     get:
       tags: [Deliveries]
       operationId: getReceiptConfirmation
+      security:
+        - oauth2: [requests:read]
       summary: Get a receipt confirmation
       description: Returns one receipt confirmation representation.
       x-required-roles: [requester, jastiper, admin]
@@ -826,21 +770,18 @@ paths:
                 confirmedAt: '2026-09-04T17:50:00+07:00'
                 recipientName: Ridlo Fanata Wicaksana
                 note: Package received in good condition.
-        '401':
-          $ref: '#/components/responses/AuthenticationRequired401'
-        '403':
-          $ref: '#/components/responses/Forbidden403'
-        '404':
-          $ref: '#/components/responses/ResourceNotFound404'
-        '500':
-          $ref: '#/components/responses/InternalError500'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable503'
+        '401': { $ref: '#/components/responses/AuthenticationRequired401' }
+        '403': { $ref: '#/components/responses/Forbidden403' }
+        '404': { $ref: '#/components/responses/ResourceNotFound404' }
+        '500': { $ref: '#/components/responses/InternalError500' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
   /accounts/{accountId}:
     get:
       tags: [Accounts]
       operationId: getAccount
+      security:
+        - oauth2: [accounts:read]
       summary: Get a limited account representation
       description: Returns only fields allowed for the authenticated actor. Account management is outside this contract.
       x-required-roles: [requester, jastiper, admin]
@@ -860,21 +801,18 @@ paths:
                 verificationStatus: verified
                 createdAt: '2026-08-30T10:00:00+07:00'
                 updatedAt: '2026-09-01T10:00:00+07:00'
-        '401':
-          $ref: '#/components/responses/AuthenticationRequired401'
-        '403':
-          $ref: '#/components/responses/Forbidden403'
-        '404':
-          $ref: '#/components/responses/ResourceNotFound404'
-        '500':
-          $ref: '#/components/responses/InternalError500'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable503'
+        '401': { $ref: '#/components/responses/AuthenticationRequired401' }
+        '403': { $ref: '#/components/responses/Forbidden403' }
+        '404': { $ref: '#/components/responses/ResourceNotFound404' }
+        '500': { $ref: '#/components/responses/InternalError500' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
   /issues:
     get:
       tags: [Issues]
       operationId: listIssues
+      security:
+        - oauth2: [issues:read]
       summary: List transaction issues
       description: Returns a paginated collection of transaction issues visible to administrators. An MCP client may read but not resolve issues.
       x-required-roles: [admin]
@@ -895,19 +833,16 @@ paths:
                   limit: 10
                   nextCursor: null
                   hasMore: false
-        '400':
-          $ref: '#/components/responses/InvalidRequest400'
-        '401':
-          $ref: '#/components/responses/AuthenticationRequired401'
-        '403':
-          $ref: '#/components/responses/Forbidden403'
-        '500':
-          $ref: '#/components/responses/InternalError500'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable503'
+        '400': { $ref: '#/components/responses/InvalidRequest400' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired401' }
+        '403': { $ref: '#/components/responses/Forbidden403' }
+        '500': { $ref: '#/components/responses/InternalError500' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable503' }
     post:
       tags: [Issues]
       operationId: createIssue
+      security:
+        - oauth2: [issues:write]
       summary: Create a transaction issue
       description: Creates a limited operational issue for administrative attention. This is not a full dispute-resolution system.
       x-required-roles: [requester, jastiper, admin]
@@ -953,27 +888,21 @@ paths:
                 resolution: null
                 createdAt: '2026-09-03T09:00:00+07:00'
                 updatedAt: '2026-09-03T09:00:00+07:00'
-        '400':
-          $ref: '#/components/responses/PostBadRequest400'
-        '401':
-          $ref: '#/components/responses/AuthenticationRequired401'
-        '403':
-          $ref: '#/components/responses/Forbidden403'
-        '404':
-          $ref: '#/components/responses/ResourceNotFound404'
-        '409':
-          $ref: '#/components/responses/IdempotencyConflict409'
-        '422':
-          $ref: '#/components/responses/ValidationFailed422'
-        '500':
-          $ref: '#/components/responses/InternalError500'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable503'
+        '400': { $ref: '#/components/responses/PostBadRequest400' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired401' }
+        '403': { $ref: '#/components/responses/Forbidden403' }
+        '404': { $ref: '#/components/responses/ResourceNotFound404' }
+        '409': { $ref: '#/components/responses/IdempotencyConflict409' }
+        '422': { $ref: '#/components/responses/ValidationFailed422' }
+        '500': { $ref: '#/components/responses/InternalError500' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
   /issues/{issueId}:
     get:
       tags: [Issues]
       operationId: getIssue
+      security:
+        - oauth2: [issues:read]
       summary: Get a transaction issue
       description: Returns one issue with its current status and related transaction references.
       x-required-roles: [admin]
@@ -1000,21 +929,18 @@ paths:
                 resolution: null
                 createdAt: '2026-09-03T09:00:00+07:00'
                 updatedAt: '2026-09-03T09:10:00+07:00'
-        '401':
-          $ref: '#/components/responses/AuthenticationRequired401'
-        '403':
-          $ref: '#/components/responses/Forbidden403'
-        '404':
-          $ref: '#/components/responses/ResourceNotFound404'
-        '500':
-          $ref: '#/components/responses/InternalError500'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable503'
+        '401': { $ref: '#/components/responses/AuthenticationRequired401' }
+        '403': { $ref: '#/components/responses/Forbidden403' }
+        '404': { $ref: '#/components/responses/ResourceNotFound404' }
+        '500': { $ref: '#/components/responses/InternalError500' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
   /issues/{issueId}/resolutions:
     post:
       tags: [Issues]
       operationId: createIssueResolution
+      security:
+        - oauth2: [issues:manage]
       summary: Resolve a transaction issue
       description: Creates one resolution for an issue and moves it to resolved. A resolved issue cannot receive another resolution with a new intent.
       x-required-roles: [admin]
@@ -1062,24 +988,41 @@ paths:
                   resolvedByAccountId: acc_admin_1Qw72HsM
                 createdAt: '2026-09-03T09:00:00+07:00'
                 updatedAt: '2026-09-03T09:20:00+07:00'
-        '400':
-          $ref: '#/components/responses/PostBadRequest400'
-        '401':
-          $ref: '#/components/responses/AuthenticationRequired401'
-        '403':
-          $ref: '#/components/responses/Forbidden403'
-        '404':
-          $ref: '#/components/responses/ResourceNotFound404'
-        '409':
-          $ref: '#/components/responses/IssueResolutionConflict409'
-        '422':
-          $ref: '#/components/responses/ValidationFailed422'
-        '500':
-          $ref: '#/components/responses/InternalError500'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable503'
+        '400': { $ref: '#/components/responses/PostBadRequest400' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired401' }
+        '403': { $ref: '#/components/responses/Forbidden403' }
+        '404': { $ref: '#/components/responses/ResourceNotFound404' }
+        '409': { $ref: '#/components/responses/IssueResolutionConflict409' }
+        '422': { $ref: '#/components/responses/ValidationFailed422' }
+        '500': { $ref: '#/components/responses/InternalError500' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
 components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      description: |
+        Access tokens are issued by the Titipin authorisation server. Public
+        clients use Authorization Code + PKCE with no client secret.
+      flows:
+        authorizationCode:
+          authorizationUrl: https://auth.titipin.example/realms/titipin/protocol/openid-connect/auth
+          tokenUrl: https://auth.titipin.example/realms/titipin/protocol/openid-connect/token
+          refreshUrl: https://auth.titipin.example/realms/titipin/protocol/openid-connect/token
+          scopes:
+            requests:read: Read requests, offers, assignments, deliveries, and receipt confirmations visible to the caller
+            requests:write: Create and manage your own requests - place a request, select an offer, pay, and confirm receipt
+            requests:fulfil: Jastiper operations to fulfil an assigned request - submit an offer and record a purchase and delivery
+            deliveries:write: Submit delivery location updates, as a jastiper or a tracking device
+            payments:read: Read payment records
+            accounts:read: Read limited account representations
+            issues:read: Read transaction issues (administrator)
+            issues:write: Report a transaction issue
+            issues:manage: Investigate and resolve transaction issues (administrator)
+        clientCredentials:
+          tokenUrl: https://auth.titipin.example/realms/titipin/protocol/openid-connect/token
+          scopes:
+            payments:read: Read payment records for the reconciliation job
 
   parameters:
     IdempotencyKey:
@@ -1099,6 +1042,7 @@ components:
       in: path
       required: true
       description: Opaque server-generated request identifier.
+      example: req_51Fa93cD
       schema:
         type: string
         minLength: 8
@@ -1109,6 +1053,7 @@ components:
       in: path
       required: true
       description: Opaque server-generated offer identifier.
+      example: off_9Zx28LmQ
       schema:
         type: string
         minLength: 8
@@ -1119,6 +1064,7 @@ components:
       in: path
       required: true
       description: Opaque server-generated assignment identifier.
+      example: asg_3Bn71RtP
       schema:
         type: string
         minLength: 8
@@ -1129,6 +1075,7 @@ components:
       in: path
       required: true
       description: Opaque server-generated payment identifier.
+      example: pay_4Lm82QwX
       schema:
         type: string
         minLength: 8
@@ -1139,6 +1086,7 @@ components:
       in: path
       required: true
       description: Opaque server-generated delivery identifier.
+      example: dlv_8Qp21HsM
       schema:
         type: string
         minLength: 8
@@ -1149,6 +1097,7 @@ components:
       in: path
       required: true
       description: Opaque server-generated receipt confirmation identifier.
+      example: rcp_6Hs42QwX
       schema:
         type: string
         minLength: 8
@@ -1159,6 +1108,7 @@ components:
       in: path
       required: true
       description: Opaque account identifier.
+      example: acc_jas_2Rt71BnP
       schema:
         type: string
         minLength: 8
@@ -1169,6 +1119,7 @@ components:
       in: path
       required: true
       description: Opaque server-generated transaction issue identifier.
+      example: iss_7Lm21QwX
       schema:
         type: string
         minLength: 8
