@@ -73,7 +73,4 @@ async function main() {
   } catch (error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); await closePool(); }
 }
-main().catch(() => {
-  console.error('Binding P4 gagal. Periksa issuer, enam user Step 3, database P3, dan migrasi 004.');
-  process.exitCode = 1;
-});
+main().catch((err) => { console.error('Binding P4 gagal:', err); process.exitCode = 1; });

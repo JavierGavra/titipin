@@ -16,4 +16,4 @@ async function main() {
     throw error;
   } finally { client.release(); await closePool(); }
 }
-main().catch(() => { console.error('Migrasi P4 gagal; periksa konfigurasi dan struktur database P3.'); process.exitCode = 1; });
+main().catch((err) => { console.error('Migrasi P4 gagal:', err); process.exitCode = 1; });
