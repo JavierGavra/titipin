@@ -1,5 +1,6 @@
 'use strict';
 
+const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { readdirSync } = require('node:fs');
 const { boot } = require('./helpers/harness.cjs');
@@ -9,7 +10,10 @@ async function main() {
   try {
     const token = await h.tokens.sign('requester-a', ['requests:read', 'requests:write']);
     const files = readdirSync('tests/contract').filter((f) => f.endsWith('.test.cjs')).sort();
-    const child = spawn(process.execPath, ['--test', ...files.map((f) => 'tests/contract/' + f)], {
+    const child = spawn(process.execPath, [
+      '--require', path.resolve(__dirname, 'helpers/inject-token.cjs'),
+      '--test', ...files.map((f) => 'tests/contract/' + f),
+    ], {
       stdio: 'inherit',
       env: { ...process.env, BASE_URL: h.base + '/v1', TEST_ACCESS_TOKEN: token },
     });

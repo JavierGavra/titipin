@@ -18,7 +18,7 @@ app.get('/health', (req, res) => {
 // Membaca body JSON sebelum diteruskan ke route API.
 app.use(express.json());
 
-app.use('/v1/requests', authenticate, requestRoutes);
+app.use('/v1/requests', requestRoutes);
 app.use('/v1/assignments', authenticate, assignmentRoutes);
 app.use('/v1/deliveries', authenticate, deliveryRoutes);
 

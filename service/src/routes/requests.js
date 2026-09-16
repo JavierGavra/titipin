@@ -1,4 +1,5 @@
 const { requireScope } = require('../auth/require-scope');
+const { authenticate } = require('../auth/authenticate');
 const { mayReadRequest, maySelectOffer } = require('../auth/ownership');
 const { resolveActor } = require('../store/identities');
 const {
@@ -27,7 +28,7 @@ const { sendProblem, ProblemError } = require('../problem');
 
 const router = express.Router();
 
-router.get('/', requireScope('requests:read'), async (req, res) => {
+router.get('/', async (req, res, next) => {
   const { invalidParameters, value } = validateRequestQuery(req.query);
 
   if (invalidParameters.length > 0) {
@@ -37,13 +38,14 @@ router.get('/', requireScope('requests:read'), async (req, res) => {
     });
   }
 
-  const actor = await resolveActor(req.principal);
-  const rows = await listRequests(actor, value);
-
-  return res.status(200).json(toRequestPage(rows, value, actor));
+  return authenticate(req, res, async () => requireScope('requests:read')(req, res, async () => {
+    const actor = await resolveActor(req.principal);
+    const rows = await listRequests(actor, value);
+    return res.status(200).json(toRequestPage(rows, value, actor));
+  }));
 });
 
-router.get('/:requestId', requireScope('requests:read'), async (req, res) => {
+router.get('/:requestId', async (req, res) => {
   const invalidParameters = validateRequestId(req.params.requestId);
 
   if (invalidParameters.length > 0) {
@@ -53,19 +55,19 @@ router.get('/:requestId', requireScope('requests:read'), async (req, res) => {
     });
   }
 
-  const actor = await resolveActor(req.principal);
-  const row = await getRequestById(req.params.requestId, actor);
-
-  if (!mayReadRequest(actor, row)) { // mutation: request-owner
-    return sendProblem(res, 'resource-not-found', {
-      detail: 'The requested item request was not found.',
-    });
-  }
-
-  return res.status(200).json(toRequest(row, actor));
+  return authenticate(req, res, async () => requireScope('requests:read')(req, res, async () => {
+    const actor = await resolveActor(req.principal);
+    const row = await getRequestById(req.params.requestId, actor);
+    if (!mayReadRequest(actor, row)) { // mutation: request-owner
+      return sendProblem(res, 'resource-not-found', {
+        detail: 'The requested item request was not found.',
+      });
+    }
+    return res.status(200).json(toRequest(row, actor));
+  }));
 });
 
-router.post('/:requestId/assignments', requireScope('requests:write'), express.json(), async (req, res) => {
+router.post('/:requestId/assignments', authenticate, requireScope('requests:write'), express.json(), async (req, res) => {
   const invalidId = validateRequestId(req.params.requestId);
 
   if (invalidId.length) {
