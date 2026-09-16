@@ -45,6 +45,12 @@ function loadConfig() {
     port: readPositiveInteger('PORT', 65535),
     host: readRequired('HTTP_HOST').trim(),
 
+    oidc: {
+      issuer: readRequired('OIDC_ISSUER').trim(),
+      jwksUri: readRequired('OIDC_JWKS_URI').trim(),
+      audience: readRequired('OIDC_AUDIENCE').trim(),
+    },
+
     database: {
       host: readRequired('PGHOST').trim(),
       port: readPositiveInteger('PGPORT', 65535),
@@ -56,11 +62,6 @@ function loadConfig() {
         2147483647
       ),
       ssl: readSslConfig(),
-    },
-    oidc: {
-      issuer: readRequired('OIDC_ISSUER').trim(),
-      jwksUri: readRequired('OIDC_JWKS_URI').trim(),
-      audience: readRequired('OIDC_AUDIENCE').trim(),
     },
   };
 }

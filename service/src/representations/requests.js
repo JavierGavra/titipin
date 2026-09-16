@@ -1,3 +1,5 @@
+const { maySeeRequestPrivateFields } = require('../auth/ownership');
+
 function toMoneyAmount(value) {
   if (typeof value !== 'string' || !/^\d+(?:\.0+)?$/.test(value)) {
     throw new Error('Nominal dari database harus berupa bilangan bulat nonnegatif.');
@@ -13,10 +15,10 @@ function toMoneyAmount(value) {
   return JSON.rawJSON(integerText);
 }
 
-function toRequest(row) {
-  return {
+function toRequest(row, actor) {
+  const showPrivate = !actor || maySeeRequestPrivateFields(actor, row);
+  const result = {
     requestId: row.request_id,
-    requesterId: row.requester_id,
     itemDescription: row.item_description,
     quantity: row.quantity,
     targetStoreOrArea: row.target_store_or_area,
@@ -24,7 +26,6 @@ function toRequest(row) {
       amount: toMoneyAmount(row.budget_amount),
       currency: row.budget_currency,
     },
-    deliveryAddress: row.delivery_address,
     deadline: row.deadline.toISOString(),
     status: row.status,
     selectedOfferId: row.selected_offer_id,
@@ -32,9 +33,14 @@ function toRequest(row) {
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };
+  if (showPrivate) {
+    result.requesterId = row.requester_id;
+    result.deliveryAddress = row.delivery_address;
+  }
+  return result;
 }
 
-function toRequestPage(rows, { limit, offset }) {
+function toRequestPage(rows, { limit, offset }, actor) {
   const hasMore = rows.length > limit;
 
   const nextCursor = hasMore
@@ -45,7 +51,7 @@ function toRequestPage(rows, { limit, offset }) {
     : null;
 
   return {
-    items: rows.slice(0, limit).map(toRequest),
+    items: rows.slice(0, limit).map((row) => toRequest(row, actor)),
     page: {
       limit,
       nextCursor,
@@ -57,4 +63,4 @@ function toRequestPage(rows, { limit, offset }) {
 module.exports = {
   toRequest,
   toRequestPage,
-};
+};

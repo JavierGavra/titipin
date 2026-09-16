@@ -9,7 +9,10 @@
   },
   "scripts": {
     "test": "npm run test:contract",
-    "test:contract": "dredd openapi.yaml http://127.0.0.1:${PORT:-8080}",
+    "lint:contract": "npx --yes @redocly/cli lint openapi.yaml",
+    "test:contract": "node tests/run-contract.cjs",
+    "test:authz": "node --test tests/authz/startup.test.cjs tests/authz/access.test.cjs tests/authz/logger.test.cjs",
+    "test:authz:mutations": "node tests/authz/prove-mutations.cjs",
     "start": "node --env-file-if-exists=service/.env service/src/app.js",
     "dev": "node --watch --env-file-if-exists=service/.env service/src/app.js",
     "db:check": "node --env-file-if-exists=service/.env service/src/store/db.js",
@@ -28,6 +31,7 @@
   },
   "homepage": "https://github.com/JavierGavra/titipin#readme",
   "devDependencies": {
+    "@electric-sql/pglite": "^0.2.17",
     "@redocly/cli": "^2.51.2",
     "dredd": "^14.1.0",
     "wait-on": "^9.1.0"
@@ -38,7 +42,8 @@
     "express": "^5.2.1",
     "jose": "^6.2.12",
     "pg": "^8.23.0",
-    "pino": "^10.3.1"
+    "pino": "^10.3.1",
+    "yaml": "^2.9.1"
   },
   "engines": {
     "node": "24.x"

@@ -1,4 +1,7 @@
 const express = require('express');
+const { requireScope } = require('../auth/require-scope');
+const { mayReadAssignment } = require('../auth/ownership');
+const { resolveActor } = require('../store/identities');
 const { validateAssignmentId } = require('../schemas/assignments');
 const { getAssignmentById } = require('../store/assignments');
 const { toAssignment } = require('../representations/assignments');
@@ -6,7 +9,7 @@ const { sendProblem } = require('../problem');
 
 const router = express.Router();
 
-router.get('/:assignmentId', async (req, res) => {
+router.get('/:assignmentId', requireScope('requests:read'), async (req, res) => {
   const invalidParameters = validateAssignmentId(
     req.params.assignmentId
   );
@@ -18,15 +21,12 @@ router.get('/:assignmentId', async (req, res) => {
     });
   }
 
-  const row = await getAssignmentById(req.params.assignmentId);
+  const actor = await resolveActor(req.principal);
+  const row = await getAssignmentById(req.params.assignmentId, actor);
 
-  if (row === null) {
+  if (!mayReadAssignment(actor, row)) { // mutation: assignment-owner
     return sendProblem(res, 'resource-not-found', {
       detail: 'The requested assignment was not found.',
-      extensions: {
-        resourceType: 'Assignment',
-        resourceId: req.params.assignmentId,
-      },
     });
   }
 
