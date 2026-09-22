@@ -52,7 +52,22 @@ function mayCreateRequest(actor) {
     && actor.accountId !== null;
 }
 
+function mayReadOffer(actor) {
+  return actor.accountId !== null && (
+    (actor.kind === 'user' && ['requester', 'jastiper', 'admin'].includes(actor.role))
+    || (actor.kind === 'service' && actor.roles.includes('mcp-reader'))
+  );
+}
+
+function mayCreateOffer(actor) {
+  return actor.kind === 'user' && actor.role === 'jastiper'
+    && actor.verificationStatus === 'verified'
+    && actor.accountId !== null;
+}
+
 module.exports = {
   mayReadRequest, mayReadAssignment, maySelectOffer, mayWriteLocation,
   maySeeRequestPrivateFields, mayCreateRequest,
+  mayReadOffer, mayCreateOffer,
 };
+

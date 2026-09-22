@@ -1,19 +1,5 @@
 const { maySeeRequestPrivateFields } = require('../auth/ownership');
-
-function toMoneyAmount(value) {
-  if (typeof value !== 'string' || !/^\d+(?:\.0+)?$/.test(value)) {
-    throw new Error('Nominal dari database harus berupa bilangan bulat nonnegatif.');
-  }
-
-  const integerText = BigInt(value.split('.')[0]).toString();
-  const amount = Number(integerText);
-
-  if (Number.isSafeInteger(amount)) {
-    return amount;
-  }
-
-  return JSON.rawJSON(integerText);
-}
+const { toMoneyAmount } = require('./money');
 
 function toRequest(row, actor) {
   const showPrivate = !actor || maySeeRequestPrivateFields(actor, row);
