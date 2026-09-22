@@ -117,12 +117,11 @@ router.post('/:requestId/assignments', authenticate, requireScope('requests:writ
     });
   }
 
-  let request;
   const response = await runIdempotent({
     principal: req.principal,
     authorize: async (client, lock) => {
       const actor = await resolveActor(req.principal, client);
-      request = await getRequestById(req.params.requestId, actor, client, lock);
+      const request = await getRequestById(req.params.requestId, actor, client, lock);
       if (!maySelectOffer(actor, request)) {
         throw new ProblemError('resource-not-found');
       }
@@ -136,7 +135,7 @@ router.post('/:requestId/assignments', authenticate, requireScope('requests:writ
       const row = await createAssignment(client, {
         requestId: req.params.requestId,
         offerId: req.body.offerId,
-      }, request);
+      });
 
       return {
         status: 201,
