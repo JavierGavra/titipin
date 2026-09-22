@@ -98,7 +98,72 @@ function validateRequestQuery(query) {
     value: { limit, status, offset },
   };
 }
+const CURRENCIES = new Set(['IDR']);
+
+function validateCreateRequestBody(body) {
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    return [{
+      name: 'body',
+      location: 'body',
+      reason: 'The request body must be a JSON object.',
+    }];
+  }
+
+  const errors = [];
+
+  function addError(name, reason) {
+    errors.push({ name, location: 'body', reason });
+  }
+
+  const itemDescLen = typeof body.itemDescription === 'string'
+    ? Array.from(body.itemDescription).length
+    : -1;
+  if (itemDescLen < 1 || itemDescLen > 500) {
+    addError('itemDescription', 'itemDescription is required and must be a string of 1 to 500 characters.');
+  }
+
+  if (!Number.isInteger(body.quantity) || body.quantity < 1 || body.quantity > 99) {
+    addError('quantity', 'quantity is required and must be an integer between 1 and 99.');
+  }
+
+  const storeLen = typeof body.targetStoreOrArea === 'string'
+    ? Array.from(body.targetStoreOrArea).length
+    : -1;
+  if (storeLen < 1 || storeLen > 300) {
+    addError('targetStoreOrArea', 'targetStoreOrArea is required and must be a string of 1 to 300 characters.');
+  }
+
+  if (body.budget === null || typeof body.budget !== 'object' || Array.isArray(body.budget)) {
+    addError('budget', 'budget is required and must be an object.');
+  } else {
+    if (!Number.isInteger(body.budget.amount) || body.budget.amount < 0) {
+      addError('budget.amount', 'budget.amount must be a non-negative integer.');
+    }
+    if (!CURRENCIES.has(body.budget.currency)) {
+      addError('budget.currency', 'budget.currency must be IDR.');
+    }
+  }
+
+  const addrLen = typeof body.deliveryAddress === 'string'
+    ? Array.from(body.deliveryAddress).length
+    : -1;
+  if (addrLen < 1 || addrLen > 500) {
+    addError('deliveryAddress', 'deliveryAddress is required and must be a string of 1 to 500 characters.');
+  }
+
+  const datetimePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/i;
+  if (typeof body.deadline !== 'string' || !datetimePattern.test(body.deadline)
+      || !Number.isFinite(Date.parse(body.deadline))) {
+    addError('deadline', 'deadline is required and must be an RFC 3339 timestamp with timezone offset.');
+  } else if (Date.parse(body.deadline) <= Date.now()) {
+    addError('deadline', 'deadline must be in the future.');
+  }
+
+  return errors;
+}
+
 module.exports = {
   validateRequestId,
   validateRequestQuery,
+  validateCreateRequestBody,
 };

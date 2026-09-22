@@ -47,7 +47,12 @@ function maySeeRequestPrivateFields(actor, row) {
     || (actor.kind === 'user' && actor.role === 'admin' && row.operational_access === true);
 }
 
+function mayCreateRequest(actor) {
+  return actor.kind === 'user' && actor.role === 'requester'
+    && actor.accountId !== null;
+}
+
 module.exports = {
   mayReadRequest, mayReadAssignment, maySelectOffer, mayWriteLocation,
-  maySeeRequestPrivateFields,
+  maySeeRequestPrivateFields, mayCreateRequest,
 };

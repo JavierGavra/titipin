@@ -1,3 +1,4 @@
+const { randomUUID } = require('node:crypto')
 const { getPool } = require('./db')
 
 async function getRequestById(requestId, actor, db = getPool(), lock = false) {
@@ -73,7 +74,43 @@ async function listRequests(actor, { status, limit, offset }) {
 
   return result.rows;
 }
+
+async function createRequest(client, { requesterId, body }) {
+  const requestId = 'req_' + randomUUID();
+
+  const result = await client.query(
+    `INSERT INTO public.requests
+       (request_id, requester_id, item_description, quantity,
+        target_store_or_area, budget_amount, budget_currency,
+        delivery_address, deadline)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     RETURNING
+       request_id, requester_id, item_description, quantity,
+       target_store_or_area, budget_amount, budget_currency,
+       delivery_address, deadline, status, created_at, updated_at`,
+    [
+      requestId,
+      requesterId,
+      body.itemDescription,
+      body.quantity,
+      body.targetStoreOrArea,
+      body.budget.amount,
+      body.budget.currency,
+      body.deliveryAddress,
+      body.deadline,
+    ]
+  );
+
+  const row = result.rows[0];
+  // Newly created requests have no assignment yet; add null fields expected by toRequest.
+  row.selected_offer_id = null;
+  row.assigned_jastiper_id = null;
+  row.operational_access = false;
+  return row;
+}
+
 module.exports = {
   getRequestById,
   listRequests,
+  createRequest,
 }

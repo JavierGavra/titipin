@@ -1,6 +1,6 @@
 const { requireScope } = require('../auth/require-scope');
 const { authenticate } = require('../auth/authenticate');
-const { mayReadRequest, maySelectOffer } = require('../auth/ownership');
+const { mayReadRequest, maySelectOffer, mayCreateRequest } = require('../auth/ownership');
 const { resolveActor } = require('../store/identities');
 const {
   validateSelectOfferBody,
@@ -15,10 +15,12 @@ const express = require('express');
 const {
   validateRequestId,
   validateRequestQuery,
+  validateCreateRequestBody,
 } = require('../schemas/requests');;
 const {
   getRequestById,
   listRequests,
+  createRequest,
 } = require('../store/requests');
 const {
   toRequest,
@@ -143,6 +145,80 @@ router.post('/:requestId/assignments', authenticate, requireScope('requests:writ
           Location: '/v1/assignments/' + encodeURIComponent(row.assignment_id),
         },
         body: JSON.stringify(toAssignment(row)),
+      };
+    },
+  });
+
+  return res
+    .status(response.status)
+    .set(response.headers)
+    .send(response.body);
+});
+
+router.post('/', authenticate, requireScope('requests:write'), express.json(), async (req, res) => {
+  const key = req.get('Idempotency-Key');
+  const invalidKey = validateIdempotencyKey(key);
+
+  if (invalidKey.length) {
+    return sendProblem(res, 'invalid-idempotency-key', {
+      extensions: {
+        headerName: 'Idempotency-Key',
+        invalidParameters: invalidKey,
+      },
+    });
+  }
+
+  if (!req.is('application/json')) {
+    return sendProblem(res, 'invalid-request', {
+      detail: 'Content-Type must be application/json.',
+      extensions: {
+        invalidParameters: [{
+          name: 'Content-Type',
+          location: 'header',
+          reason: 'Send a JSON body with Content-Type: application/json.',
+        }],
+      },
+    });
+  }
+
+  const invalidBody = validateCreateRequestBody(req.body);
+
+  if (invalidBody.length) {
+    return sendProblem(res, 'invalid-request', {
+      detail: 'The request body does not match CreateRequest.',
+      extensions: {
+        invalidParameters: invalidBody,
+      },
+    });
+  }
+
+  const response = await runIdempotent({
+    principal: req.principal,
+    authorize: async (client) => {
+      const actor = await resolveActor(req.principal, client);
+      if (!mayCreateRequest(actor)) {
+        throw new ProblemError('resource-not-found');
+      }
+    },
+    key,
+    method: req.method,
+    uri: req.originalUrl,
+    body: req.body,
+
+    execute: async (client) => {
+      const actor = await resolveActor(req.principal, client);
+      const row = await createRequest(client, {
+        requesterId: actor.accountId,
+        body: req.body,
+      });
+
+      return {
+        status: 201,
+        headers: {
+          'Content-Type': 'application/json',
+          Location: '/v1/requests/' + encodeURIComponent(row.request_id),
+        },
+        body: JSON.stringify(toRequest(row, actor)),
       };
     },
   });

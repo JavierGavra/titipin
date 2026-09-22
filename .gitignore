@@ -16,3 +16,6 @@ npm-debug.log*
 # Log aplikasi (dapat berisi data operasional)
 service/logs/
 *.log
+
+graphify-out/
+
