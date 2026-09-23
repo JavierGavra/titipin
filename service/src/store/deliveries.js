@@ -141,5 +141,18 @@ async function createDelivery(client, { assignmentId, body }) {
   return row;
 }
 
-module.exports = { getDeliveryById, appendLocation, createDelivery };
+async function listLocationUpdates(deliveryId, { limit, offset }, db = getPool()) {
+  const result = await db.query(
+    `SELECT location_id, delivery_id, latitude, longitude, recorded_at, received_at
+     FROM public.location_updates
+     WHERE delivery_id = $1
+     ORDER BY recorded_at DESC, location_id DESC
+     LIMIT $2 OFFSET $3`,
+    [deliveryId, limit + 1, offset]
+  );
+
+  return result.rows;
+}
+
+module.exports = { getDeliveryById, appendLocation, createDelivery, listLocationUpdates };
 

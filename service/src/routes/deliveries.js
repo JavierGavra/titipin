@@ -4,11 +4,11 @@ const express = require('express');
 const { requireScope } = require('../auth/require-scope');
 const { mayWriteLocation, mayReadDelivery } = require('../auth/ownership');
 const { resolveActor } = require('../store/identities');
-const { getDeliveryById, appendLocation } = require('../store/deliveries');
+const { getDeliveryById, appendLocation, listLocationUpdates } = require('../store/deliveries');
 const { runIdempotent } = require('../store/idempotency');
 const { validateIdempotencyKey } = require('../schemas/assignments');
-const { validateDeliveryId, validateLocationBody } = require('../schemas/deliveries');
-const { toLocation, toDelivery } = require('../representations/deliveries');
+const { validateDeliveryId, validateLocationBody, validateLocationQuery } = require('../schemas/deliveries');
+const { toLocation, toDelivery, toLocationPage } = require('../representations/deliveries');
 const { sendProblem, ProblemError } = require('../problem');
 
 const router = express.Router();
@@ -33,6 +33,39 @@ router.get('/:deliveryId', requireScope('requests:read'), async (req, res) => {
   }
 
   return res.status(200).json(toDelivery(row));
+});
+
+router.get('/:deliveryId/locations', requireScope('requests:read'), async (req, res) => {
+  const invalidId = validateDeliveryId(req.params.deliveryId);
+
+  if (invalidId.length) {
+    return sendProblem(res, 'invalid-request', {
+      detail: 'The deliveryId path parameter is invalid.',
+      extensions: { invalidParameters: invalidId },
+    });
+  }
+
+  const { invalidParameters, value } = validateLocationQuery(req.query);
+
+  if (invalidParameters.length > 0) {
+    return sendProblem(res, 'invalid-request', {
+      detail: 'One or more query parameters are invalid.',
+      extensions: { invalidParameters },
+    });
+  }
+
+  const actor = await resolveActor(req.principal);
+  const delivery = await getDeliveryById(req.params.deliveryId, actor);
+
+  if (!mayReadDelivery(actor, delivery)) {
+    return sendProblem(res, 'resource-not-found', {
+      detail: 'The requested delivery was not found.',
+    });
+  }
+
+  const rows = await listLocationUpdates(req.params.deliveryId, value);
+
+  return res.status(200).json(toLocationPage(rows, value));
 });
 
 router.post('/:deliveryId/locations', requireScope('deliveries:write'), express.json(), async (req, res) => {

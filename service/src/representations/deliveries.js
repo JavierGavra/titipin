@@ -38,4 +38,24 @@ function toDelivery(row) {
   };
 }
 
-module.exports = { toLocation, toDelivery };
+function toLocationPage(rows, { limit, offset }) {
+  const hasMore = rows.length > limit;
+
+  const nextCursor = hasMore
+    ? Buffer.from(
+        JSON.stringify({ offset: offset + limit }),
+        'utf8'
+      ).toString('base64url')
+    : null;
+
+  return {
+    items: rows.slice(0, limit).map(toLocation),
+    page: {
+      limit,
+      nextCursor,
+      hasMore,
+    },
+  };
+}
+
+module.exports = { toLocation, toDelivery, toLocationPage };
