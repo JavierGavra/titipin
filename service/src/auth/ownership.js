@@ -115,6 +115,14 @@ function mayReadReceiptConfirmation(actor, row) {
   return false;
 }
 
+// Semua aktor terautentikasi dengan role yang diizinkan dapat membaca akun manapun.
+// Spec tidak mendefinisikan batasan kepemilikan pada getAccount.
+function mayReadAccount(actor, row) {
+  if (!row) return false;
+  return actor.accountId !== null && actor.kind === 'user'
+    && ['requester', 'jastiper', 'admin'].includes(actor.role);
+}
+
 module.exports = {
   mayReadRequest, mayReadAssignment, maySelectOffer, mayWriteLocation,
   maySeeRequestPrivateFields, mayCreateRequest,
@@ -122,5 +130,6 @@ module.exports = {
   mayCreatePayment, mayReadPayment,
   mayCreateDelivery, mayReadDelivery,
   mayCreateReceiptConfirmation, mayReadReceiptConfirmation,
+  mayReadAccount,
 };
 
