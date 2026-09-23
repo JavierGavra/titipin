@@ -6,6 +6,7 @@ const requestRoutes = require('./routes/requests');
 const assignmentRoutes = require('./routes/assignments');
 const deliveryRoutes = require('./routes/deliveries');
 const offerRoutes = require('./routes/offers');
+const paymentRoutes = require('./routes/payments');
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.use('/v1/requests', requestRoutes);
 app.use('/v1/assignments', authenticate, assignmentRoutes);
 app.use('/v1/deliveries', authenticate, deliveryRoutes);
 app.use('/v1', authenticate, offerRoutes);
+app.use('/v1', authenticate, paymentRoutes);
 
 
 // Dijalankan jika tidak ada route yang menangani request.

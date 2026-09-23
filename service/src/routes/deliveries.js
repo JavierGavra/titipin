@@ -2,16 +2,39 @@
 
 const express = require('express');
 const { requireScope } = require('../auth/require-scope');
-const { mayWriteLocation } = require('../auth/ownership');
+const { mayWriteLocation, mayReadDelivery } = require('../auth/ownership');
 const { resolveActor } = require('../store/identities');
 const { getDeliveryById, appendLocation } = require('../store/deliveries');
 const { runIdempotent } = require('../store/idempotency');
 const { validateIdempotencyKey } = require('../schemas/assignments');
 const { validateDeliveryId, validateLocationBody } = require('../schemas/deliveries');
-const { toLocation } = require('../representations/deliveries');
+const { toLocation, toDelivery } = require('../representations/deliveries');
 const { sendProblem, ProblemError } = require('../problem');
 
 const router = express.Router();
+
+router.get('/:deliveryId', requireScope('requests:read'), async (req, res) => {
+  const invalidParameters = validateDeliveryId(req.params.deliveryId);
+
+  if (invalidParameters.length > 0) {
+    return sendProblem(res, 'invalid-request', {
+      detail: 'The deliveryId path parameter is invalid.',
+      extensions: { invalidParameters },
+    });
+  }
+
+  const actor = await resolveActor(req.principal);
+  const row = await getDeliveryById(req.params.deliveryId, actor);
+
+  if (!mayReadDelivery(actor, row)) {
+    return sendProblem(res, 'resource-not-found', {
+      detail: 'The requested delivery was not found.',
+    });
+  }
+
+  return res.status(200).json(toDelivery(row));
+});
+
 router.post('/:deliveryId/locations', requireScope('deliveries:write'), express.json(), async (req, res) => {
   const invalidId = validateDeliveryId(req.params.deliveryId);
   if (invalidId.length) return sendProblem(res, 'invalid-request', { extensions: { invalidParameters: invalidId } });

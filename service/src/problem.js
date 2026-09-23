@@ -62,6 +62,21 @@ const { logger } = require('./logger');
       title: 'The original request is still being processed',
       detail: 'Retry the same request after the delay in Retry-After.',
     },
+    'payment-declined': {
+      status: 422,
+      title: 'Payment was declined',
+      detail: 'The simulated payment was declined by the configured test outcome.',
+    },
+    'payment-not-succeeded': {
+      status: 409,
+      title: 'Payment has not succeeded',
+      detail: 'The assignment does not have a succeeded payment.',
+    },
+    'item-unavailable': {
+      status: 409,
+      title: 'Requested item is unavailable',
+      detail: 'The jastiper could not obtain the requested item after assignment.',
+    },
 };
 
 class ProblemError extends Error {

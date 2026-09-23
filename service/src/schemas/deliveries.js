@@ -29,4 +29,30 @@ function validateLocationBody(body) {
   return errors;
 }
 
-module.exports = { validateDeliveryId, validateLocationBody };
+function validateCreateDeliveryBody(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return [{ name: 'body', location: 'body', reason: 'The request body must be a JSON object.' }];
+  }
+
+  const errors = [];
+  const datetime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/i;
+  const dateParts = typeof body.purchaseRecordedAt === 'string'
+    && /^(\d{4})-(\d{2})-(\d{2})T/i.exec(body.purchaseRecordedAt);
+  const validDay = dateParts
+    && Number(dateParts[2]) >= 1 && Number(dateParts[2]) <= 12
+    && Number(dateParts[3]) >= 1
+    && Number(dateParts[3]) <= new Date(Date.UTC(Number(dateParts[1]), Number(dateParts[2]), 0)).getUTCDate();
+
+  if (typeof body.purchaseRecordedAt !== 'string' || !datetime.test(body.purchaseRecordedAt)
+      || !validDay || !Number.isFinite(Date.parse(body.purchaseRecordedAt))) {
+    errors.push({
+      name: 'purchaseRecordedAt',
+      location: 'body',
+      reason: 'purchaseRecordedAt is required and must be an RFC 3339 timestamp with timezone offset.',
+    });
+  }
+
+  return errors;
+}
+
+module.exports = { validateDeliveryId, validateLocationBody, validateCreateDeliveryBody };
