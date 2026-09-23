@@ -98,11 +98,29 @@ function mayReadDelivery(actor, row) {
   return false;
 }
 
+function mayCreateReceiptConfirmation(actor, deliveryRow) {
+  return Boolean(deliveryRow) && actor.kind === 'user' && actor.role === 'requester'
+    && actor.accountId === deliveryRow.requester_id;
+}
+
+function mayReadReceiptConfirmation(actor, row) {
+  if (!row) return false;
+  if (actor.kind === 'user' && actor.role === 'requester'
+      && actor.accountId === row.requester_id) return true;
+  if (actor.kind === 'user' && actor.role === 'jastiper'
+      && actor.verificationStatus === 'verified'
+      && actor.accountId === row.assigned_jastiper_id) return true;
+  if (actor.kind === 'user' && actor.role === 'admin'
+      && actor.accountId !== null) return true;
+  return false;
+}
+
 module.exports = {
   mayReadRequest, mayReadAssignment, maySelectOffer, mayWriteLocation,
   maySeeRequestPrivateFields, mayCreateRequest,
   mayReadOffer, mayCreateOffer,
   mayCreatePayment, mayReadPayment,
   mayCreateDelivery, mayReadDelivery,
+  mayCreateReceiptConfirmation, mayReadReceiptConfirmation,
 };
 

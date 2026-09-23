@@ -2,13 +2,15 @@
 
 const express = require('express');
 const { requireScope } = require('../auth/require-scope');
-const { mayWriteLocation, mayReadDelivery } = require('../auth/ownership');
+const { mayWriteLocation, mayReadDelivery, mayCreateReceiptConfirmation } = require('../auth/ownership');
 const { resolveActor } = require('../store/identities');
 const { getDeliveryById, appendLocation, listLocationUpdates } = require('../store/deliveries');
 const { runIdempotent } = require('../store/idempotency');
 const { validateIdempotencyKey } = require('../schemas/assignments');
-const { validateDeliveryId, validateLocationBody, validateLocationQuery } = require('../schemas/deliveries');
+const { validateDeliveryId, validateLocationBody, validateLocationQuery, validateReceiptConfirmationBody } = require('../schemas/deliveries');
 const { toLocation, toDelivery, toLocationPage } = require('../representations/deliveries');
+const { toReceiptConfirmation } = require('../representations/receipt-confirmations');
+const { createReceiptConfirmation } = require('../store/receipt-confirmations');
 const { sendProblem, ProblemError } = require('../problem');
 
 const router = express.Router();
@@ -100,6 +102,86 @@ router.post('/:deliveryId/locations', requireScope('deliveries:write'), express.
     },
   });
   return res.status(response.status).set(response.headers).send(response.body);
+});
+
+router.post('/:deliveryId/receipt-confirmations', requireScope('requests:write'), express.json(), async (req, res) => {
+  const invalidId = validateDeliveryId(req.params.deliveryId);
+
+  if (invalidId.length) {
+    return sendProblem(res, 'invalid-request', {
+      detail: 'The deliveryId path parameter is invalid.',
+      extensions: { invalidParameters: invalidId },
+    });
+  }
+
+  const key = req.get('Idempotency-Key');
+  const invalidKey = validateIdempotencyKey(key);
+
+  if (invalidKey.length) {
+    return sendProblem(res, 'invalid-idempotency-key', {
+      extensions: {
+        headerName: 'Idempotency-Key',
+        invalidParameters: invalidKey,
+      },
+    });
+  }
+
+  if (!req.is('application/json')) {
+    return sendProblem(res, 'invalid-request', {
+      detail: 'Content-Type must be application/json.',
+      extensions: {
+        invalidParameters: [{
+          name: 'Content-Type',
+          location: 'header',
+          reason: 'Send a JSON body with Content-Type: application/json.',
+        }],
+      },
+    });
+  }
+
+  const invalidBody = validateReceiptConfirmationBody(req.body);
+
+  if (invalidBody.length) {
+    return sendProblem(res, 'invalid-request', {
+      detail: 'The request body does not match CreateReceiptConfirmation.',
+      extensions: { invalidParameters: invalidBody },
+    });
+  }
+
+  let actor;
+  let deliveryRow;
+  const response = await runIdempotent({
+    principal: req.principal,
+    authorize: async (client) => {
+      actor = await resolveActor(req.principal, client);
+      deliveryRow = await getDeliveryById(req.params.deliveryId, actor, client);
+      if (!mayCreateReceiptConfirmation(actor, deliveryRow)) {
+        throw new ProblemError('resource-not-found');
+      }
+    },
+    key,
+    method: req.method,
+    uri: req.originalUrl,
+    body: req.body,
+
+    execute: async (client) => {
+      const row = await createReceiptConfirmation(client, deliveryRow, actor, req.body);
+
+      return {
+        status: 201,
+        headers: {
+          'Content-Type': 'application/json',
+          Location: '/v1/receipt-confirmations/' + encodeURIComponent(row.confirmation_id),
+        },
+        body: JSON.stringify(toReceiptConfirmation(row)),
+      };
+    },
+  });
+
+  return res
+    .status(response.status)
+    .set(response.headers)
+    .send(response.body);
 });
 
 module.exports = router;

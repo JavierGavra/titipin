@@ -77,6 +77,11 @@ const { logger } = require('./logger');
       title: 'Requested item is unavailable',
       detail: 'The jastiper could not obtain the requested item after assignment.',
     },
+    'receipt-already-confirmed': {
+      status: 409,
+      title: 'Delivery receipt has already been confirmed',
+      detail: 'This delivery already has a receipt confirmation.',
+    },
 };
 
 class ProblemError extends Error {

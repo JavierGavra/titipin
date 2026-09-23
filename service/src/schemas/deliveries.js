@@ -114,4 +114,63 @@ function validateLocationQuery(query) {
   };
 }
 
-module.exports = { validateDeliveryId, validateLocationBody, validateCreateDeliveryBody, validateLocationQuery };
+function validateConfirmationId(value) {
+  return typeof value === 'string' && Array.from(value).length >= 8
+    && Array.from(value).length <= 64 && !value.includes('\u0000') ? [] : [{
+      name: 'confirmationId', location: 'path', reason: 'confirmationId must contain 8 to 64 valid characters.',
+    }];
+}
+
+function validateReceiptConfirmationBody(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return [{ name: 'body', location: 'body', reason: 'The request body must be a JSON object.' }];
+  }
+
+  const errors = [];
+  const datetime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/i;
+  const dateParts = typeof body.confirmedAt === 'string'
+    && /^(\d{4})-(\d{2})-(\d{2})T/i.exec(body.confirmedAt);
+  const validDay = dateParts
+    && Number(dateParts[2]) >= 1 && Number(dateParts[2]) <= 12
+    && Number(dateParts[3]) >= 1
+    && Number(dateParts[3]) <= new Date(Date.UTC(Number(dateParts[1]), Number(dateParts[2]), 0)).getUTCDate();
+
+  if (typeof body.confirmedAt !== 'string' || !datetime.test(body.confirmedAt)
+      || !validDay || !Number.isFinite(Date.parse(body.confirmedAt))) {
+    errors.push({
+      name: 'confirmedAt',
+      location: 'body',
+      reason: 'confirmedAt is required and must be an RFC 3339 timestamp with timezone offset.',
+    });
+  }
+
+  const nameLen = typeof body.recipientName === 'string'
+    ? Array.from(body.recipientName).length
+    : -1;
+
+  if (nameLen < 1 || nameLen > 200) {
+    errors.push({
+      name: 'recipientName',
+      location: 'body',
+      reason: 'recipientName is required and must be a string between 1 and 200 characters.',
+    });
+  }
+
+  if (body.note !== undefined && body.note !== null) {
+    const noteLen = typeof body.note === 'string' ? Array.from(body.note).length : -1;
+    if (noteLen < 0 || noteLen > 500) {
+      errors.push({
+        name: 'note',
+        location: 'body',
+        reason: 'note must be a string of at most 500 characters.',
+      });
+    }
+  }
+
+  return errors;
+}
+
+module.exports = {
+  validateDeliveryId, validateLocationBody, validateCreateDeliveryBody,
+  validateLocationQuery, validateConfirmationId, validateReceiptConfirmationBody,
+};
