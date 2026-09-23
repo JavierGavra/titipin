@@ -9,6 +9,7 @@ const offerRoutes = require('./routes/offers');
 const paymentRoutes = require('./routes/payments');
 const receiptConfirmationRoutes = require('./routes/receipt-confirmations');
 const accountRoutes = require('./routes/accounts');
+const issueRoutes = require('./routes/issues');
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use('/v1', authenticate, offerRoutes);
 app.use('/v1', authenticate, paymentRoutes);
 app.use('/v1/receipt-confirmations', authenticate, receiptConfirmationRoutes);
 app.use('/v1/accounts', authenticate, accountRoutes);
+app.use('/v1/issues', authenticate, issueRoutes);
 
 
 // Dijalankan jika tidak ada route yang menangani request.

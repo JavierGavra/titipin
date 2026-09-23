@@ -123,6 +123,21 @@ function mayReadAccount(actor, row) {
     && ['requester', 'jastiper', 'admin'].includes(actor.role);
 }
 
+function mayReadIssue(actor, row) {
+  if (!row) return false;
+  return actor.kind === 'user' && actor.role === 'admin' && actor.accountId !== null;
+}
+
+function mayCreateIssue(actor) {
+  return actor.accountId !== null && actor.kind === 'user'
+    && ['requester', 'jastiper', 'admin'].includes(actor.role);
+}
+
+function mayResolveIssue(actor, row) {
+  if (!row) return false;
+  return actor.kind === 'user' && actor.role === 'admin' && actor.accountId !== null;
+}
+
 module.exports = {
   mayReadRequest, mayReadAssignment, maySelectOffer, mayWriteLocation,
   maySeeRequestPrivateFields, mayCreateRequest,
@@ -131,5 +146,6 @@ module.exports = {
   mayCreateDelivery, mayReadDelivery,
   mayCreateReceiptConfirmation, mayReadReceiptConfirmation,
   mayReadAccount,
+  mayReadIssue, mayCreateIssue, mayResolveIssue,
 };
 

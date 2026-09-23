@@ -82,6 +82,11 @@ const { logger } = require('./logger');
       title: 'Delivery receipt has already been confirmed',
       detail: 'This delivery already has a receipt confirmation.',
     },
+    'issue-already-resolved': {
+      status: 409,
+      title: 'Transaction issue is already resolved',
+      detail: 'The transaction issue already has a final resolution.',
+    },
 };
 
 class ProblemError extends Error {
