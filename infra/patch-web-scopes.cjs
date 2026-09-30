@@ -7,15 +7,21 @@ const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
 const envFile = path.join(root, '.local/auth.env');
-const base = 'http://localhost:8081';
+const base = (process.env.KEYCLOAK_URL || 'http://localhost:8081').replace(/\/$/, '');
 const realm = 'titipin';
 
 function readEnv(file) {
-  return Object.fromEntries(fs.readFileSync(file, 'utf8').split(/\r?\n/)
-    .filter(Boolean).map((line) => {
-      const index = line.indexOf('=');
-      return [line.slice(0, index), line.slice(index + 1)];
-    }));
+  const fromFile = fs.existsSync(file)
+    ? Object.fromEntries(fs.readFileSync(file, 'utf8').split(/\r?\n/)
+        .filter(Boolean).map((line) => {
+          const index = line.indexOf('=');
+          return [line.slice(0, index), line.slice(index + 1)];
+        }))
+    : {};
+  return {
+    KC_BOOTSTRAP_ADMIN_USERNAME: process.env.KC_BOOTSTRAP_ADMIN_USERNAME || fromFile.KC_BOOTSTRAP_ADMIN_USERNAME || 'admin',
+    KC_BOOTSTRAP_ADMIN_PASSWORD: process.env.KC_BOOTSTRAP_ADMIN_PASSWORD || fromFile.KC_BOOTSTRAP_ADMIN_PASSWORD,
+  };
 }
 
 async function request(url, { method = 'GET', token, body, form } = {}) {

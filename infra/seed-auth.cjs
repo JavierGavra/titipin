@@ -10,7 +10,7 @@ const root = path.resolve(__dirname, '..');
 const local = path.join(root, '.local');
 const envFile = path.join(local, 'auth.env');
 const credentialsFile = path.join(local, 'auth-credentials.json');
-const base = 'http://localhost:8081';
+const base = (process.env.KEYCLOAK_URL || 'http://localhost:8081').replace(/\/$/, '');
 const realm = 'titipin';
 const issuer = `${base}/realms/${realm}`;
 const audience = 'titipin-api';
@@ -61,11 +61,17 @@ const users = [
 ];
 
 function readEnv(file) {
-  return Object.fromEntries(fs.readFileSync(file, 'utf8').split(/\r?\n/)
-    .filter(Boolean).map((line) => {
-      const index = line.indexOf('=');
-      return [line.slice(0, index), line.slice(index + 1)];
-    }));
+  const fromFile = fs.existsSync(file)
+    ? Object.fromEntries(fs.readFileSync(file, 'utf8').split(/\r?\n/)
+        .filter(Boolean).map((line) => {
+          const index = line.indexOf('=');
+          return [line.slice(0, index), line.slice(index + 1)];
+        }))
+    : {};
+  return {
+    KC_BOOTSTRAP_ADMIN_USERNAME: process.env.KC_BOOTSTRAP_ADMIN_USERNAME || fromFile.KC_BOOTSTRAP_ADMIN_USERNAME || 'admin',
+    KC_BOOTSTRAP_ADMIN_PASSWORD: process.env.KC_BOOTSTRAP_ADMIN_PASSWORD || fromFile.KC_BOOTSTRAP_ADMIN_PASSWORD,
+  };
 }
 
 function safeError(prefix, response) {
@@ -181,8 +187,14 @@ async function assignRealmRole(token, userId, role) {
 }
 
 async function main() {
-  if (!fs.existsSync(envFile)) throw new Error('Buat .local/auth.env dahulu dengan node infra/init-auth.cjs.');
-  if (fs.existsSync(credentialsFile)) throw new Error('.local/auth-credentials.json sudah ada; script tidak menimpa user password atau secret.');
+  if (!fs.existsSync(envFile) && !process.env.KC_BOOTSTRAP_ADMIN_PASSWORD) {
+    throw new Error('Buat .local/auth.env dahulu dengan node infra/init-auth.cjs.');
+  }
+  if (fs.existsSync(credentialsFile)) {
+    const backupFile = path.join(local, `auth-credentials.backup-${Date.now()}.json`);
+    fs.renameSync(credentialsFile, backupFile);
+    console.log(`Kredensial lama dicadangkan ke .local/${path.basename(backupFile)}.`);
+  }
 
   const env = readEnv(envFile);
   if (!env.KC_BOOTSTRAP_ADMIN_USERNAME || !env.KC_BOOTSTRAP_ADMIN_PASSWORD) {
@@ -236,7 +248,19 @@ async function main() {
   });
   await createClient(token, userClient('titipin-web', 'user',
     ['requests:read', 'payments:read', 'accounts:read', 'issues:read', 'issues:write'], {
-      redirectUris: ['http://localhost:5173/callback'], webOrigins: ['http://localhost:5173'],
+      redirectUris: [
+        'http://localhost:5173/callback',
+        'http://127.0.0.1:5173/callback',
+        'https://titipin-web.vercel.app/callback',
+        'https://*.vercel.app/callback',
+      ],
+      webOrigins: [
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+        'https://titipin-web.vercel.app',
+        'https://*.vercel.app',
+        '+',
+      ],
       attributes: { 'pkce.code.challenge.method': 'S256' },
     }));
   await createClient(token, userClient('titipin-mobile', 'user',
@@ -293,7 +317,7 @@ async function main() {
 
   fs.writeFileSync(credentialsFile, JSON.stringify({ issuer, audience, users: createdUsers,
     mcp: { clientId: 'titipin-mcp', clientSecret: secret.value } }, null, 2) + '\n',
-  { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+  { encoding: 'utf8', mode: 0o600, flag: 'w' });
   console.log('Realm Titipin, client, scope, service account, dan enam user uji sudah dibuat.');
   console.log('Kredensial lokal disimpan di .local/auth-credentials.json dan tidak dicetak.');
 }
