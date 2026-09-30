@@ -96,4 +96,14 @@ Setiap tampilan data memiliki skeleton saat loading, kalimat khusus saat empty, 
 
 Build web dilakukan dari `clients/web` dengan `npm run build`. Set environment deployment berikut: `VITE_API_BASE_URL`, `VITE_OIDC_ISSUER`, `VITE_OIDC_CLIENT_ID`, `VITE_OIDC_REDIRECT_URI`, dan `WEB_ORIGINS` pada service. URL aplikasi web untuk presentasi: `https://titipin-fe.vercel.app`. URL service yang sudah tersedia: `https://titipin-nine.vercel.app/v1`.
 
+### Akun Uji Coba
+
+Untuk pengujian dan evaluasi pada aplikasi web publik, penguji dapat menggunakan akun berikut:
+
+| Role | Username | Password | Deskripsi Alur Uji |
+| :--- | :--- | :--- | :--- |
+| `requester` | `requester-a` | `Password123!` | Membuat permintaan belanja (`/requests/new`), memilih penawaran, dan membayar simulasi |
+| `jastiper` | `jastiper-a` | `Password123!` | Melihat permintaan belanja terbuka dan mengajukan penawaran (*offer*) |
+| `admin` | `admin-a` | `Password123!` | Memantau dan menyelesaikan laporan kendala transaksi (`/issues`) |
+
 Urutan demo dan contoh serangan console tersedia di [docs/demo-web.md](docs/demo-web.md).
