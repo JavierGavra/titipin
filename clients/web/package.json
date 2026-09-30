@@ -1,0 +1,14 @@
+{
+  "name": "titipin-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env server.mjs",
+    "build": "node build.mjs",
+    "preview": "node --env-file-if-exists=.env server.mjs dist"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

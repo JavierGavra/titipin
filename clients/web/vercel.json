@@ -1,0 +1,15 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/callback", "destination": "/index.html" },
+    { "source": "/signin", "destination": "/index.html" },
+    { "source": "/dashboard", "destination": "/index.html" },
+    { "source": "/requests/new", "destination": "/index.html" },
+    { "source": "/requests/:requestId", "destination": "/index.html" },
+    { "source": "/assignments/:assignmentId", "destination": "/index.html" },
+    { "source": "/deliveries/:deliveryId", "destination": "/index.html" },
+    { "source": "/issues", "destination": "/index.html" },
+    { "source": "/issues/:issueId", "destination": "/index.html" }
+  ]
+}
