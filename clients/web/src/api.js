@@ -97,17 +97,23 @@ async function request(path, options = {}, retry = true) {
     method = 'GET', body, cacheKey = path, conditional = false, idempotent = false,
     ifMatch, headers, signal,
   } = options;
-  const savedEtag = conditional ? etags.get(cacheKey) : undefined;
-  const response = await fetch(urlFor(path), {
-    method,
-    body: body === undefined ? undefined : JSON.stringify(body),
-    headers: makeHeaders({ body, idempotencyKey: idempotent ? newIdempotencyKey() : undefined, ifMatch,
-      ifNoneMatch: savedEtag, headers }),
-    signal,
-    redirect: 'error',
-  }).catch((error) => {
+  let response;
+  try {
+    response = await fetch(urlFor(path), {
+      method,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      headers: makeHeaders({ body, idempotencyKey: idempotent ? newIdempotencyKey() : undefined, ifMatch,
+        ifNoneMatch: savedEtag, headers }),
+      signal,
+      redirect: 'error',
+    });
+  } catch (error) {
+    if (savedEtag && method === 'GET' && retry) {
+      etags.delete(cacheKey);
+      return request(path, { ...options, conditional: false }, false);
+    }
     throw new ProblemError({ status: 0, title: 'Koneksi gagal', detail: 'Layanan Titipin tidak dapat dijangkau. Periksa koneksi lalu coba lagi.' });
-  });
+  }
 
   if (response.status === 401 && retry) {
     const refreshed = await hooks.refreshSession();

@@ -1,7 +1,9 @@
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-const root = new URL('.', import.meta.url).pathname;
+import { fileURLToPath } from 'node:url';
+
+const root = fileURLToPath(new URL('.', import.meta.url));
 const dist = resolve(root, 'dist');
 let fileEnv = {};
 try {

@@ -144,6 +144,7 @@ function renderDashboardContent() {
 async function refreshDashboard(token) {
   if (token !== renderToken || !dashboardSnapshot) return;
   try {
+    await auth.ensureFreshSession();
     const result = dashboardSnapshot.role === 'admin'
       ? await api.listIssues({ conditional: true })
       : await api.listRequests({ status: dashboardSnapshot.role === 'jastiper' ? 'open' : undefined, conditional: true });

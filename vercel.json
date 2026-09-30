@@ -9,6 +9,12 @@
   "routes": [
     {
       "src": "/(.*)",
+      "headers": {
+        "Access-Control-Allow-Origin": "https://titipin-fe.vercel.app",
+        "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+        "Access-Control-Allow-Headers": "Authorization, Content-Type, Idempotency-Key, If-Match, If-None-Match",
+        "Access-Control-Expose-Headers": "ETag, Location"
+      },
       "dest": "service/src/app.js"
     }
   ]
