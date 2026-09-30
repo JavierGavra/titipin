@@ -73,8 +73,22 @@ async function main() {
   const scopeMap = Object.fromEntries(allScopes.map(s => [s.name, s.id]));
   console.log('Available scopes:', Object.keys(scopeMap).join(', '));
 
-  // Scope yang perlu ditambahkan ke titipin-web
-  const toAdd = ['requests:write', 'requests:fulfil', 'deliveries:write'];
+  // Default scopes yang wajib ada di client OIDC
+  for (const name of ['profile', 'email', 'roles', 'web-origins', 'basic', 'acr']) {
+    const scopeId = scopeMap[name];
+    if (scopeId) {
+      await request(adminUrl(`/clients/${webClientId}/default-client-scopes/${scopeId}`), {
+        method: 'PUT', token,
+      });
+      console.log(`OK: default scope ${name} ditambahkan.`);
+    }
+  }
+
+  // Optional domain scopes yang diizinkan untuk titipin-web
+  const toAdd = [
+    'requests:read', 'requests:write', 'requests:fulfil', 'deliveries:write',
+    'payments:read', 'accounts:read', 'issues:read', 'issues:write'
+  ];
 
   for (const scopeName of toAdd) {
     const scopeId = scopeMap[scopeName];
@@ -82,7 +96,6 @@ async function main() {
       console.log(`SKIP: scope ${scopeName} tidak ada di realm.`);
       continue;
     }
-    // Add as optional client scope
     const addRes = await request(adminUrl(`/clients/${webClientId}/optional-client-scopes/${scopeId}`), {
       method: 'PUT', token,
     });

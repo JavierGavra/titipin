@@ -249,16 +249,15 @@ async function main() {
   await createClient(token, userClient('titipin-web', 'user',
     ['requests:read', 'payments:read', 'accounts:read', 'issues:read', 'issues:write'], {
       redirectUris: [
+        'https://titipin-fe.vercel.app/callback',
+        'https://titipin-fe.vercel.app/*',
         'http://localhost:5173/callback',
         'http://127.0.0.1:5173/callback',
-        'https://titipin-web.vercel.app/callback',
-        'https://*.vercel.app/callback',
       ],
       webOrigins: [
+        'https://titipin-fe.vercel.app',
         'http://localhost:5173',
         'http://127.0.0.1:5173',
-        'https://titipin-web.vercel.app',
-        'https://*.vercel.app',
         '+',
       ],
       attributes: { 'pkce.code.challenge.method': 'S256' },

@@ -94,6 +94,6 @@ Setiap tampilan data memiliki skeleton saat loading, kalimat khusus saat empty, 
 
 ### Deployment
 
-Build web dilakukan dari `clients/web` dengan `npm run build`. Set environment deployment berikut: `VITE_API_BASE_URL`, `VITE_OIDC_ISSUER`, `VITE_OIDC_CLIENT_ID`, `VITE_OIDC_REDIRECT_URI`, dan `WEB_ORIGINS` pada service. URL aplikasi web untuk presentasi: **isi setelah deployment, contoh `https://titipin-web.vercel.app`**. URL service yang sudah tersedia: `https://titipin-nine.vercel.app/v1`.
+Build web dilakukan dari `clients/web` dengan `npm run build`. Set environment deployment berikut: `VITE_API_BASE_URL`, `VITE_OIDC_ISSUER`, `VITE_OIDC_CLIENT_ID`, `VITE_OIDC_REDIRECT_URI`, dan `WEB_ORIGINS` pada service. URL aplikasi web untuk presentasi: `https://titipin-fe.vercel.app`. URL service yang sudah tersedia: `https://titipin-nine.vercel.app/v1`.
 
 Urutan demo dan contoh serangan console tersedia di [docs/demo-web.md](docs/demo-web.md).
