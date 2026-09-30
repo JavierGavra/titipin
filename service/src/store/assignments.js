@@ -7,12 +7,16 @@ const columns = `
   status, assigned_at, purchase_recorded_at, completed_at, updated_at
 `;
 
-async function getAssignmentById(assignmentId) {
+async function getAssignmentById(assignmentId, actor) {
+  const params = actor ? [assignmentId, actor.issuer, actor.subject] : [assignmentId, null, null];
   const result = await getPool().query(
-    `SELECT ${columns}
+    `SELECT ${columns},
+       EXISTS (SELECT 1 FROM public.request_access ra
+         JOIN public.assignments a2 ON a2.request_id = ra.request_id
+         WHERE a2.assignment_id = $1 AND ra.issuer = $2 AND ra.subject = $3) AS operational_access
      FROM public.assignments
      WHERE assignment_id = $1`,
-    [assignmentId]
+    params
   );
 
   return result.rows[0] ?? null;
@@ -84,9 +88,9 @@ async function createAssignment(client, { requestId, offerId }) {
   const offer = offerResult.rows[0];
 
   if (!offer || offer.request_id !== requestId) {
-    throw invalidReference(
-      'The selected offer must exist and belong to this request.'
-    );
+    throw new ProblemError('resource-not-found', {
+      detail: 'The selected offer does not exist or does not belong to this request.',
+    });
   }
 
   const clock = await client.query('SELECT clock_timestamp() AS now');

@@ -2,8 +2,7 @@ const { createHash } = require('node:crypto');
 const { getPool } = require('./db');
 const { ProblemError, buildProblem } = require('../problem');
 
-// P3 belum memiliki autentikasi; semua pemanggil memakai satu namespace.
-const actorScope = 'anonymous:p3';
+// P4: namespace is the verified issuer plus subject, stable across token refreshes.
 
 function canonicalJson(value) {
   if (Array.isArray(value)) {
@@ -19,7 +18,11 @@ function canonicalJson(value) {
   return JSON.stringify(value);
 }
 
-async function runIdempotent({ key, method, uri, body, execute }) {
+async function runIdempotent({ principal, authorize, key, method, uri, body, execute }) {
+  if (!principal?.issuer || !principal?.subject || typeof authorize !== 'function') {
+    throw new Error('Idempotency requires a principal and an object authorization callback.');
+  }
+  const actorScope = JSON.stringify([principal.issuer, principal.subject]);
   key = key.toLowerCase();
 
   const hash = createHash('sha256')
@@ -37,7 +40,10 @@ async function runIdempotent({ key, method, uri, body, execute }) {
   let releaseError;
 
   try {
-    // Reservasi singkat: binding key tetap ada jika proses terhenti.
+    // Denied callers cannot even reserve an idempotency key.
+    await authorize(client, false);
+
+    // Preserve the P3 short reservation: an in-flight retry can see the binding.
     await client.query(
       `INSERT INTO public.idempotency_keys
          (actor_scope, idempotency_key, request_method, request_uri, request_hash)
@@ -87,24 +93,23 @@ async function runIdempotent({ key, method, uri, body, execute }) {
       });
     }
 
+    if (!lock.rows[0].locked && record.status !== 'completed') {
+      throw new ProblemError('idempotency-request-in-progress', {
+        retryAfterSeconds: 2,
+        extensions: { retryAfterSeconds: 2 },
+      });
+    }
+
+    // Recheck inside the transaction, including on replay; lock the business row.
+    await authorize(client, true);
     if (record.status === 'completed') {
       await client.query('COMMIT');
       inTransaction = false;
-
       return {
         status: record.response_status,
         headers: record.response_headers,
         body: record.response_body,
       };
-    }
-
-    if (!lock.rows[0].locked) {
-      throw new ProblemError('idempotency-request-in-progress', {
-        retryAfterSeconds: 2,
-        extensions: {
-          retryAfterSeconds: 2,
-        },
-      });
     }
 
     // Efek bisnis dan respons disimpan dalam transaksi yang sama.

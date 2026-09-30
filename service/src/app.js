@@ -1,8 +1,16 @@
 const express = require('express');
 const { loadConfig } = require('./config');
 const { sendProblem, errorHandler } = require('./problem');
+const { corsMiddleware, conditionalMiddleware } = require('./http/conditional');
+const { authenticate } = require('./auth/authenticate');
 const requestRoutes = require('./routes/requests');
 const assignmentRoutes = require('./routes/assignments');
+const deliveryRoutes = require('./routes/deliveries');
+const offerRoutes = require('./routes/offers');
+const paymentRoutes = require('./routes/payments');
+const receiptConfirmationRoutes = require('./routes/receipt-confirmations');
+const accountRoutes = require('./routes/accounts');
+const issueRoutes = require('./routes/issues');
 
 const app = express();
 
@@ -13,11 +21,23 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Izinkan request dari frontend web (CORS).
+app.use(corsMiddleware);
+
+// Menambahkan ETag pada GET response dan memproses If-None-Match / If-Match.
+app.use(conditionalMiddleware);
+
 // Membaca body JSON sebelum diteruskan ke route API.
 app.use(express.json());
 
 app.use('/v1/requests', requestRoutes);
-app.use('/v1/assignments', assignmentRoutes);
+app.use('/v1/assignments', authenticate, assignmentRoutes);
+app.use('/v1/deliveries', authenticate, deliveryRoutes);
+app.use('/v1', authenticate, offerRoutes);
+app.use('/v1', authenticate, paymentRoutes);
+app.use('/v1/receipt-confirmations', authenticate, receiptConfirmationRoutes);
+app.use('/v1/accounts', authenticate, accountRoutes);
+app.use('/v1/issues', authenticate, issueRoutes);
 
 
 // Dijalankan jika tidak ada route yang menangani request.

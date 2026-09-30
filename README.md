@@ -53,5 +53,47 @@ curl -i -X POST "http://127.0.0.1:4010/requests/11111111-1111-4111-8111-11111111
   --data '{"offerId":"33333333-3333-4333-8333-333333333333"}'
 ```
 
-### Deployment URL
-`https://titipin-nine.vercel.app/`
+## Deployment P3
+
+- Service: Vercel.
+- Database: PostgreSQL pada Neon.
+- URL service: https://titipin-nine.vercel.app
+- Base URL API: https://titipin-nine.vercel.app/v1
+- Health endpoint: https://titipin-nine.vercel.app/health
+
+Service dapat mengalami cold start pada paket hosting gratis.
+
+Panduan implementasi dan status operasi tersedia di service/README.md.
+Keputusan implementasi tersedia di docs/decisions/0002-implementasi.md.
+
+## Aplikasi web browser
+
+Folder `clients/web` berisi klien browser yang dibangun di atas operasi pada `openapi.yaml`. Tidak ada endpoint baru yang ditambahkan untuk mempermudah antarmuka. Salin `clients/web/.env.example` menjadi `clients/web/.env`, isi URL API dan issuer, lalu jalankan `npm run dev` dari folder tersebut setelah service dan Keycloak lokal tersedia.
+
+### Ruang lingkup workflow
+
+| Workflow | Screen/URL | Role | Operasi kontrak | Panggilan sebelum tampil |
+| --- | --- | --- | --- | ---: |
+| Requester membuat permintaan | Dashboard `/dashboard`, form `/requests/new` | `requester` | `GET /v1/requests`, `POST /v1/requests` | 1 |
+| Requester memilih penawaran | Detail `/requests/{requestId}` | `requester` | `GET /v1/requests/{requestId}`, `GET /v1/requests/{requestId}/offers`, `POST /v1/requests/{requestId}/assignments` | 2 |
+| Requester membayar | Detail `/assignments/{assignmentId}` | `requester` | `GET /v1/assignments/{assignmentId}`, `POST /v1/assignments/{assignmentId}/payments` | 1 |
+| Jastiper memenuhi permintaan | Dashboard dan detail request | `jastiper` | `GET /v1/requests?status=open`, `GET /v1/requests/{requestId}`, `GET /v1/requests/{requestId}/offers`, `POST /v1/requests/{requestId}/offers`, `POST /v1/assignments/{assignmentId}/deliveries` | 1–2 |
+| Admin menindaklanjuti kendala | `/issues`, `/issues/{issueId}` | `admin` | `GET /v1/issues`, `GET /v1/issues/{issueId}`, `POST /v1/issues/{issueId}/resolutions` | 1 |
+
+Operasi pada kolom terakhir semuanya terdaftar di `openapi.yaml`. Jika service menolak sebuah operasi, aplikasi menampilkan refusal dari service dan tidak menggantinya dengan endpoint tambahan.
+
+### Keputusan sesi browser
+
+Access token dan refresh token disimpan di `localStorage` agar sesi dan URL detail tetap dapat digunakan setelah reload atau dibuka di tab baru. Penyimpanan ini dibaca oleh JavaScript yang berjalan pada origin yang sama, sehingga risiko XSS lebih besar daripada cookie `HttpOnly`; produksi harus menambahkan Content Security Policy, sanitasi output, dan meminimalkan masa berlaku token. PKCE verifier dan state hanya disimpan sementara di `sessionStorage` sampai callback login selesai.
+
+Kontrak saat ini tidak menyediakan operasi sign-out server. Tombol keluar menghapus access token dan refresh token lokal; pencabutan token tetap mengikuti masa berlaku dan kebijakan rotasi authorization server.
+
+### Empat state dan kegagalan jaringan
+
+Setiap tampilan data memiliki skeleton saat loading, kalimat khusus saat empty, pesan domain dan tombol retry saat error, serta content dengan waktu pengambilan dan penanda stale saat refresh latar belakang gagal. API layer menerjemahkan Problem Details: 401 menghapus sesi dan kembali ke login, 403 menjelaskan bahwa role tidak memiliki izin, 404 menjadi tampilan tidak ditemukan, 400 menempatkan `invalidParameters` pada field, dan 412 menjelaskan konflik ETag.
+
+### Deployment
+
+Build web dilakukan dari `clients/web` dengan `npm run build`. Set environment deployment berikut: `VITE_API_BASE_URL`, `VITE_OIDC_ISSUER`, `VITE_OIDC_CLIENT_ID`, `VITE_OIDC_REDIRECT_URI`, dan `WEB_ORIGINS` pada service. URL aplikasi web untuk presentasi: **isi setelah deployment, contoh `https://titipin-web.vercel.app`**. URL service yang sudah tersedia: `https://titipin-nine.vercel.app/v1`.
+
+Urutan demo dan contoh serangan console tersedia di [docs/demo-web.md](docs/demo-web.md).

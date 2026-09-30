@@ -1,6 +1,17 @@
 const { randomUUID } = require('node:crypto');
+const { logger } = require('./logger');
 
     const problems = {
+    'authentication-required': {
+        status: 401,
+        title: 'Authentication required',
+        detail: 'A valid access token is required.',
+    },
+    'forbidden': {
+        status: 403,
+        title: 'Action is not permitted',
+        detail: 'The authenticated account does not have permission to perform this action.',
+    },
     'invalid-request': {
         status: 400,
         title: 'Invalid request',
@@ -10,6 +21,11 @@ const { randomUUID } = require('node:crypto');
         status: 404,
         title: 'Resource not found',
         detail: 'The requested resource was not found.',
+    },
+    'precondition-failed': {
+        status: 412,
+        title: 'The resource changed',
+        detail: 'The resource changed before this action was applied.',
     },
     'internal-error': {
         status: 500,
@@ -51,6 +67,31 @@ const { randomUUID } = require('node:crypto');
       title: 'The original request is still being processed',
       detail: 'Retry the same request after the delay in Retry-After.',
     },
+    'payment-declined': {
+      status: 422,
+      title: 'Payment was declined',
+      detail: 'The simulated payment was declined by the configured test outcome.',
+    },
+    'payment-not-succeeded': {
+      status: 409,
+      title: 'Payment has not succeeded',
+      detail: 'The assignment does not have a succeeded payment.',
+    },
+    'item-unavailable': {
+      status: 409,
+      title: 'Requested item is unavailable',
+      detail: 'The jastiper could not obtain the requested item after assignment.',
+    },
+    'receipt-already-confirmed': {
+      status: 409,
+      title: 'Delivery receipt has already been confirmed',
+      detail: 'This delivery already has a receipt confirmation.',
+    },
+    'issue-already-resolved': {
+      status: 409,
+      title: 'Transaction issue is already resolved',
+      detail: 'The transaction issue already has a final resolution.',
+    },
 };
 
 class ProblemError extends Error {
@@ -69,6 +110,14 @@ function buildProblem(code, options = {}) {
     throw new Error('Problem type belum terdaftar: ' + code);
   }
 
+  // Byte-identical absent/foreign object responses, including instance.
+  if (code === 'resource-not-found') {
+    return {
+      type: 'https://api.titipin.example/problems/resource-not-found',
+      title: problem.title, status: problem.status, detail: problem.detail,
+      instance: 'urn:titipin:problem:resource-not-found',
+    };
+  }
   return {
     ...options.extensions,
     type: 'https://api.titipin.example/problems/' + code,
@@ -178,12 +227,13 @@ function errorHandler(error, req, res, next) {
 
   const instance = 'urn:uuid:' + randomUUID();
 
-  console.error({
+  logger.error({
     instance,
     method: req.method,
-    path: req.path,
-    error,
-  });
+    path: req.route?.path || '[unmatched]',
+    correlationId: req.correlationId,
+    reason: isDependencyUnavailable(error) ? 'dependency_unavailable' : 'internal_error',
+  }, 'request failed');
 
   if (isDependencyUnavailable(error)) {
   const retryAfterSeconds = 10;
@@ -200,7 +250,21 @@ return sendProblem(res, 'internal-error', { instance });
 }
 
 
+function unauthorized(res) {
+  res.set('WWW-Authenticate', 'Bearer error="invalid_token"');
+  res.set('Cache-Control', 'no-store');
+  return sendProblem(res, 'authentication-required');
+}
+
+function forbidden(res, needed) {
+  res.set('WWW-Authenticate', `Bearer error="insufficient_scope", scope="${needed.join(' ')}"`);
+  res.set('Cache-Control', 'no-store');
+  return sendProblem(res, 'forbidden', { extensions: { requiredPermission: needed.join(' ') } });
+}
+
 module.exports = {
+  unauthorized,
+  forbidden,
   sendProblem,
   errorHandler,
   buildProblem,
