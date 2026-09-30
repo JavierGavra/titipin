@@ -103,14 +103,28 @@ function corsMiddleware(req, res, next) {
   const origin = req.get('Origin');
   const allowed = allowedOrigins();
   if (origin && allowed.has(origin)) {
-    res.set({
+    const corsHeaders = {
       'Access-Control-Allow-Origin': origin,
       'Access-Control-Allow-Credentials': 'true',
       'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
       'Access-Control-Allow-Headers': 'Authorization, Content-Type, Idempotency-Key, If-Match, If-None-Match',
       'Access-Control-Expose-Headers': 'ETag, Location',
       Vary: 'Origin',
-    });
+    };
+    res.set(corsHeaders);
+
+    // Re-apply CORS headers right before the response is flushed to the client.
+    // This guarantees they survive 304 and other short-circuit responses that
+    // bypass res.json() (e.g. from conditionalMiddleware or Vercel's edge).
+    const _end = res.end.bind(res);
+    res.end = function (...args) {
+      if (!res.headersSent) {
+        for (const [k, v] of Object.entries(corsHeaders)) {
+          res.setHeader(k, v);
+        }
+      }
+      return _end(...args);
+    };
   }
   if (req.method === 'OPTIONS') return res.status(204).end();
   return next();
