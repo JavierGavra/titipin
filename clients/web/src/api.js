@@ -97,6 +97,7 @@ async function request(path, options = {}, retry = true) {
     method = 'GET', body, cacheKey = path, conditional = false, idempotent = false,
     ifMatch, headers, signal,
   } = options;
+  const savedEtag = conditional ? etags.get(cacheKey) : undefined;
   let response;
   try {
     response = await fetch(urlFor(path), {
