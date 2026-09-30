@@ -5,7 +5,7 @@ const { principalFrom } = require('./principal');
 const { unauthorized } = require('../problem');
 
 async function authenticate(req, res, next) {
-  res.set('Cache-Control', 'private, no-store');
+  res.set('Cache-Control', 'private, no-cache, must-revalidate');
   // Query-string credentials are never an authentication mechanism.
   if (Object.keys(req.query).some((key) => /^(access_token|refresh_token|id_token|token)$/i.test(key))) {
     return unauthorized(res);

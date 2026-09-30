@@ -77,6 +77,7 @@ function conditionalMiddleware(req, res, next) {
       const etag = makeEtag(body);
       versions.set(readKey(req), etag);
       res.set('ETag', etag);
+      res.set('Cache-Control', 'private, no-cache, must-revalidate');
       if (matchesEtag(req.get('If-None-Match'), etag)) {
         return res.status(304).end();
       }
