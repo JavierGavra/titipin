@@ -1,7 +1,7 @@
 const express = require('express');
 const { loadConfig } = require('./config');
 const { sendProblem, errorHandler } = require('./problem');
-const { corsMiddleware } = require('./http/conditional');
+const { corsMiddleware, conditionalMiddleware } = require('./http/conditional');
 const { authenticate } = require('./auth/authenticate');
 const requestRoutes = require('./routes/requests');
 const assignmentRoutes = require('./routes/assignments');
@@ -23,6 +23,9 @@ app.get('/health', (req, res) => {
 
 // Izinkan request dari frontend web (CORS).
 app.use(corsMiddleware);
+
+// Menambahkan ETag pada GET response dan memproses If-None-Match / If-Match.
+app.use(conditionalMiddleware);
 
 // Membaca body JSON sebelum diteruskan ke route API.
 app.use(express.json());
