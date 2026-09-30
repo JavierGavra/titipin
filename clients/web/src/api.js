@@ -102,7 +102,6 @@ async function request(path, options = {}, retry = true) {
   try {
     response = await fetch(urlFor(path), {
       method,
-      cache: 'no-store',
       body: body === undefined ? undefined : JSON.stringify(body),
       headers: makeHeaders({ body, idempotencyKey: idempotent ? newIdempotencyKey() : undefined, ifMatch,
         ifNoneMatch: savedEtag, headers }),
