@@ -1,13 +1,22 @@
 'use strict';
 
-const { createRemoteJWKSet, jwtVerify } = require('jose');
+// const { createRemoteJWKSet, jwtVerify } = require('jose');
 const { loadConfig } = require('../config');
 
 // One resolver per process; jose caches keys and handles key rotation.
 let jwks;
 let oidc;
+let josePromise;
+
+function getJose() {
+  if (!josePromise) {
+    josePromise = import('jose');
+  }
+  return josePromise;
+}
 
 async function verifyAccessToken(raw) {
+  const { createRemoteJWKSet, jwtVerify } = await getJose();
   if (!jwks) {
     oidc = loadConfig().oidc;
     jwks = createRemoteJWKSet(new URL(oidc.jwksUri), {
