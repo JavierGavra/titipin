@@ -28,6 +28,6 @@ for (const [name, relative, before, after] of mutants) {
     }
   } finally { fs.writeFileSync(file, original); }
   const green = run(name);
-  if (green.status !== 0) throw new Error(name + ': restored guard did not pass.');
+  if (green.status !== 0) throw new Error(name + ': restored guard did not pass.\n\nSTDOUT:\n' + green.stdout + '\n\nSTDERR:\n' + green.stderr);
   console.log(name + ': RED without guard; GREEN after restoring guard');
 }
