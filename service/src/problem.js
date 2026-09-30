@@ -22,6 +22,11 @@ const { logger } = require('./logger');
         title: 'Resource not found',
         detail: 'The requested resource was not found.',
     },
+    'precondition-failed': {
+        status: 412,
+        title: 'The resource changed',
+        detail: 'The resource changed before this action was applied.',
+    },
     'internal-error': {
         status: 500,
         title: 'An internal error occurred',

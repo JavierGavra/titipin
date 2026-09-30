@@ -1,9 +1,9 @@
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, resolve } from 'node:path';
-import { URL } from 'node:url';
+import { URL, fileURLToPath } from 'node:url';
 
-const root = resolve(process.argv[2] || new URL('.', import.meta.url).pathname);
+const root = resolve(process.argv[2] || fileURLToPath(new URL('.', import.meta.url)));
 const port = Number(process.env.PORT || 5173);
 const apiBaseUrl = process.env.VITE_API_BASE_URL || process.env.TITIPIN_API_BASE_URL || 'http://localhost:8080/v1';
 const issuer = process.env.VITE_OIDC_ISSUER || 'http://localhost:8081/realms/titipin';
