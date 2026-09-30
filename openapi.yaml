@@ -147,6 +147,7 @@ paths:
         '404': { $ref: '#/components/responses/ResourceNotFound404' }
         '409': { $ref: '#/components/responses/IdempotencyConflict409' }
         '422': { $ref: '#/components/responses/ValidationFailed422' }
+        '412': { $ref: '#/components/responses/PreconditionFailed412' }
         '500': { $ref: '#/components/responses/InternalError500' }
         '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
@@ -303,6 +304,7 @@ paths:
         '404': { $ref: '#/components/responses/ResourceNotFound404' }
         '409': { $ref: '#/components/responses/InvalidStateOrIdempotency409' }
         '422': { $ref: '#/components/responses/ValidationFailed422' }
+        '412': { $ref: '#/components/responses/PreconditionFailed412' }
         '500': { $ref: '#/components/responses/InternalError500' }
         '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
@@ -403,6 +405,7 @@ paths:
         '404': { $ref: '#/components/responses/ResourceNotFound404' }
         '409': { $ref: '#/components/responses/AssignmentConflict409' }
         '422': { $ref: '#/components/responses/ValidationFailed422' }
+        '412': { $ref: '#/components/responses/PreconditionFailed412' }
         '500': { $ref: '#/components/responses/InternalError500' }
         '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
@@ -493,6 +496,7 @@ paths:
         '404': { $ref: '#/components/responses/ResourceNotFound404' }
         '409': { $ref: '#/components/responses/InvalidStateOrIdempotency409' }
         '422': { $ref: '#/components/responses/PaymentValidationOrDeclined422' }
+        '412': { $ref: '#/components/responses/PreconditionFailed412' }
         '500': { $ref: '#/components/responses/InternalError500' }
         '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
@@ -584,6 +588,7 @@ paths:
         '404': { $ref: '#/components/responses/ResourceNotFound404' }
         '409': { $ref: '#/components/responses/DeliveryConflict409' }
         '422': { $ref: '#/components/responses/ValidationFailed422' }
+        '412': { $ref: '#/components/responses/PreconditionFailed412' }
         '500': { $ref: '#/components/responses/InternalError500' }
         '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
@@ -706,6 +711,7 @@ paths:
         '404': { $ref: '#/components/responses/ResourceNotFound404' }
         '409': { $ref: '#/components/responses/InvalidStateOrIdempotency409' }
         '422': { $ref: '#/components/responses/ValidationFailed422' }
+        '412': { $ref: '#/components/responses/PreconditionFailed412' }
         '500': { $ref: '#/components/responses/InternalError500' }
         '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
@@ -757,6 +763,7 @@ paths:
         '404': { $ref: '#/components/responses/ResourceNotFound404' }
         '409': { $ref: '#/components/responses/ReceiptConflict409' }
         '422': { $ref: '#/components/responses/ValidationFailed422' }
+        '412': { $ref: '#/components/responses/PreconditionFailed412' }
         '500': { $ref: '#/components/responses/InternalError500' }
         '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
@@ -910,6 +917,7 @@ paths:
         '404': { $ref: '#/components/responses/ResourceNotFound404' }
         '409': { $ref: '#/components/responses/IdempotencyConflict409' }
         '422': { $ref: '#/components/responses/ValidationFailed422' }
+        '412': { $ref: '#/components/responses/PreconditionFailed412' }
         '500': { $ref: '#/components/responses/InternalError500' }
         '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
@@ -1010,6 +1018,7 @@ paths:
         '404': { $ref: '#/components/responses/ResourceNotFound404' }
         '409': { $ref: '#/components/responses/IssueResolutionConflict409' }
         '422': { $ref: '#/components/responses/ValidationFailed422' }
+        '412': { $ref: '#/components/responses/PreconditionFailed412' }
         '500': { $ref: '#/components/responses/InternalError500' }
         '503': { $ref: '#/components/responses/ServiceUnavailable503' }
 
@@ -1274,6 +1283,18 @@ components:
             detail: The authenticated account does not have permission to perform this action.
             instance: /v1/requests
             requiredPermission: requests:write
+    PreconditionFailed412:
+      description: The client wrote using an ETag that is no longer current.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: 'https://api.titipin.example/problems/precondition-failed'
+            title: The resource changed
+            status: 412
+            detail: Data ini sudah berubah karena diproses lebih dulu oleh pengguna lain.
+            instance: /v1/requests/req_51Fa93cD
     ResourceNotFound404:
       description: |
         The object is absent or inaccessible to this caller. Both conditions

@@ -15,6 +15,9 @@
     "test:authz:mutations": "node tests/authz/prove-mutations.cjs",
     "start": "node --env-file-if-exists=service/.env service/src/app.js",
     "dev": "node --watch --env-file-if-exists=service/.env service/src/app.js",
+    "web:dev": "npm --prefix clients/web run dev",
+    "web:build": "npm --prefix clients/web run build",
+    "web:preview": "npm --prefix clients/web run preview",
     "db:check": "node --env-file-if-exists=service/.env service/src/store/db.js",
     "db:schema": "node --env-file-if-exists=service/.env service/src/store/apply-schema.js"
   },
