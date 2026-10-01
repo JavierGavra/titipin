@@ -114,6 +114,33 @@ async function createDelivery(client, { assignmentId, body }) {
   );
 
   const deliveryAddress = requestResult.rows[0]?.delivery_address ?? '';
+
+  // Cek apakah delivery untuk assignment ini sudah pernah dibuat sebelumnya.
+  const existingResult = await client.query(
+    `SELECT d.delivery_id, d.assignment_id, d.status, d.delivery_address, d.created_at, d.started_at, d.delivered_at,
+       (SELECT row_to_json(lu)
+          FROM (SELECT latitude, longitude, recorded_at
+                FROM public.location_updates
+                WHERE delivery_id = d.delivery_id
+                ORDER BY recorded_at DESC, location_id DESC
+                LIMIT 1) lu) AS last_location,
+       rc.confirmed_at
+     FROM public.deliveries d
+     LEFT JOIN public.receipt_confirmations rc ON rc.delivery_id = d.delivery_id
+     WHERE d.assignment_id = $1`,
+    [assignmentId]
+  );
+
+  if (existingResult.rows[0]) {
+    await client.query(
+      `UPDATE public.assignments
+       SET purchase_recorded_at = COALESCE(purchase_recorded_at, $2), status = 'purchased', updated_at = CURRENT_TIMESTAMP
+       WHERE assignment_id = $1`,
+      [assignmentId, body.purchaseRecordedAt]
+    );
+    return existingResult.rows[0];
+  }
+
   const deliveryId = 'dlv_' + randomUUID();
 
   const result = await client.query(

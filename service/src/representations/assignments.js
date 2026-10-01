@@ -5,6 +5,7 @@ function toAssignment(row) {
     offerId: row.offer_id,
     assignedJastiperId: row.assigned_jastiper_id,
     status: row.status,
+    deliveryId: row.delivery_id ?? null,
     assignedAt: row.assigned_at.toISOString(),
     purchaseRecordedAt: row.purchase_recorded_at === null
       ? null

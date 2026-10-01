@@ -68,15 +68,15 @@ async function createReceiptConfirmation(client, deliveryRow, actor, body) {
     });
   }
 
-  // Delivery harus dalam status 'delivered' agar bisa dikonfirmasi.
-  if (delivery.status !== 'delivered') {
+  // Delivery harus dalam status 'in_transit' atau 'delivered' agar bisa dikonfirmasi.
+  if (!['in_transit', 'delivered'].includes(delivery.status)) {
     throw new ProblemError('invalid-state-transition', {
       detail: 'The delivery is not ready for receipt confirmation.',
       extensions: {
         resourceType: 'Delivery',
         resourceId: deliveryId,
         currentStatus: delivery.status,
-        allowedStatuses: ['delivered'],
+        allowedStatuses: ['in_transit', 'delivered'],
       },
     });
   }

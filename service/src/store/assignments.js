@@ -13,6 +13,7 @@ async function getAssignmentById(assignmentId, actor) {
     `SELECT a.assignment_id, a.request_id, a.offer_id, a.assigned_jastiper_id,
        a.status, a.assigned_at, a.purchase_recorded_at, a.completed_at, a.updated_at,
        r.requester_id,
+       (SELECT delivery_id FROM public.deliveries WHERE assignment_id = a.assignment_id LIMIT 1) AS delivery_id,
        EXISTS (SELECT 1 FROM public.request_access ra
          WHERE ra.request_id = a.request_id AND ra.issuer = $2 AND ra.subject = $3) AS operational_access
      FROM public.assignments a

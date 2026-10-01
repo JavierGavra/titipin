@@ -266,11 +266,21 @@ async function renderAssignmentDetail(assignmentId, notice = '') {
     if (assignment.requestId) {
       try { localStorage.setItem('titipin.asg.' + assignment.requestId, assignment.assignmentId); } catch {}
     }
+    const deliveryId = assignment.deliveryId || localStorage.getItem('titipin.dlv.' + assignment.assignmentId);
+    if (deliveryId) {
+      try { localStorage.setItem('titipin.dlv.' + assignment.assignmentId, deliveryId); } catch {}
+    }
+
     const paymentForm = role === 'requester' && ['active', 'assigned'].includes(assignment.status) ? `<section class="card"><h2>Bayar pesanan</h2><p>Pilih simulasi pembayaran. Nominal final dihitung service dari penawaran.</p><form id="payment-form"><div class="field"><label for="paymentMethod">Metode</label><select id="paymentMethod" name="method"><option value="simulated_card">Kartu simulasi (Berhasil)</option><option value="simulated_bank_transfer">Transfer bank simulasi (Uji Skenario Ditolak)</option></select></div><button class="btn btn-primary" type="submit">Bayar sekarang</button></form></section>` : '';
-    const requesterPaidCard = role === 'requester' && assignment.status === 'purchased' ? `<section class="card" style="background:#f0fdf4;border:1px solid #86efac;"><h2 style="color:#166534;">Pembayaran Berhasil</h2><p>Pembayaran pesanan telah dikonfirmasi (status: <strong>purchased</strong>). Saat ini menunggu jastiper membeli barang dan memulai pengantaran.</p></section>` : '';
-    const deliveryForm = role === 'jastiper' && ['active', 'purchased'].includes(assignment.status) ? (assignment.status === 'active' ? `<section class="card"><h2>Menunggu Pembayaran</h2><p>Pemesan belum menyelesaikan pembayaran. Anda baru bisa memulai pengantaran setelah status menjadi purchased.</p></section>` : `<section class="card"><h2>Mulai pengantaran</h2><p>Catat waktu barang dibeli sebelum membuat delivery.</p><form id="delivery-form"><div class="field" data-field="purchaseRecordedAt"><label for="purchaseRecordedAt">Waktu pembelian</label><input id="purchaseRecordedAt" name="purchaseRecordedAt" type="datetime-local" required><div class="field-error"></div></div><button class="btn btn-primary" type="submit">Buat delivery</button></form></section>`) : '';
+    
+    const requesterPaidCard = role === 'requester' ? (deliveryId ? `<section class="card" style="background:#eff6ff;border:1px solid #93c5fd;"><h2 style="color:#1e40af;">Pengantaran Sedang Berjalan</h2><p>Jastiper sedang mengantarkan pesanan Anda. Anda dapat memantau posisi pengantaran di OpenStreetMap dan mengonfirmasi penerimaan saat paket tiba.</p><div style="margin-top:1rem;"><a href="/deliveries/${encodeURIComponent(deliveryId)}" class="btn btn-primary" data-nav>Pantau Lokasi & Konfirmasi Penerimaan</a></div></section>` : (assignment.status === 'purchased' ? `<section class="card" style="background:#f0fdf4;border:1px solid #86efac;"><h2 style="color:#166534;">Pembayaran Berhasil</h2><p>Pembayaran pesanan telah dikonfirmasi (status: <strong>purchased</strong>). Saat ini menunggu jastiper membeli barang dan memulai pengantaran.</p></section>` : '')) : '';
+
+    const jastiperDeliveryCard = role === 'jastiper' && deliveryId ? `<section class="card" style="background:#f0fdf4;border:1px solid #86efac;"><h2 style="color:#166534;">Pengantaran Aktif</h2><p>Pengantaran sudah dibuat untuk penugasan ini (ID: <code>${escapeHtml(deliveryId)}</code>). Buka halaman pengantaran untuk mengirim koordinat via OpenStreetMap dan memantau status.</p><div style="margin-top:1rem;"><a href="/deliveries/${encodeURIComponent(deliveryId)}" class="btn btn-primary" data-nav>Buka Halaman Pengantaran & Pelacakan</a></div></section>` : '';
+
+    const deliveryForm = role === 'jastiper' && !deliveryId && ['active', 'purchased'].includes(assignment.status) ? (assignment.status === 'active' ? `<section class="card"><h2>Menunggu Pembayaran</h2><p>Pemesan belum menyelesaikan pembayaran. Anda baru bisa memulai pengantaran setelah status menjadi purchased.</p></section>` : `<section class="card"><h2>Mulai pengantaran</h2><p>Catat waktu barang dibeli sebelum membuat delivery.</p><form id="delivery-form"><div class="field" data-field="purchaseRecordedAt"><label for="purchaseRecordedAt">Waktu pembelian</label><input id="purchaseRecordedAt" name="purchaseRecordedAt" type="datetime-local" required><div class="field-error"></div></div><button class="btn btn-primary" type="submit">Buat delivery</button></form></section>`) : '';
+
     const noticeHtml = notice ? `<div class="stale" role="status"><span>${escapeHtml(notice)}</span><button class="btn btn-secondary btn-small" data-action="reload-assignment">Muat ulang</button></div>` : '';
-    app.innerHTML = shell(`${pageHeading('Detail penugasan', `Penugasan ${assignment.assignmentId}`, '<a class="btn btn-secondary" href="/dashboard" data-nav>Kembali</a>')}${noticeHtml}<div class="detail-layout"><div class="stack"><section class="card"><div class="actions" style="justify-content:space-between"><span class="badge">${escapeHtml(assignment.assignmentId)}</span>${badge(assignment.status)}</div><dl class="metric"><dt>Request</dt><dd><a href="/requests/${encodeURIComponent(assignment.requestId)}" data-nav>${escapeHtml(assignment.requestId)}</a></dd></dl><dl class="metric"><dt>Offer</dt><dd>${escapeHtml(assignment.offerId)}</dd></dl><dl class="metric"><dt>Jastiper</dt><dd>${escapeHtml(assignment.assignedJastiperId)}</dd></dl><dl class="metric"><dt>Diperbarui</dt><dd>${escapeHtml(formatDate(assignment.updatedAt))}</dd></dl></section>${paymentForm}${requesterPaidCard}${deliveryForm}</div><aside class="stack"><section class="card"><h2>Catatan</h2><p>Status penugasan dibaca dari service. Refresh halaman tetap memuat data yang sama dari URL ini.</p></section></aside></div>`);
+    app.innerHTML = shell(`${pageHeading('Detail penugasan', `Penugasan ${assignment.assignmentId}`, '<a class="btn btn-secondary" href="/dashboard" data-nav>Kembali</a>')}${noticeHtml}<div class="detail-layout"><div class="stack"><section class="card"><div class="actions" style="justify-content:space-between"><span class="badge">${escapeHtml(assignment.assignmentId)}</span><div style="display:flex;gap:0.5rem;align-items:center;">${deliveryId ? `<a href="/deliveries/${encodeURIComponent(deliveryId)}" class="btn btn-primary btn-small" data-nav>Buka Pengantaran</a>` : ''}${badge(assignment.status)}</div></div><dl class="metric"><dt>Request</dt><dd><a href="/requests/${encodeURIComponent(assignment.requestId)}" data-nav>${escapeHtml(assignment.requestId)}</a></dd></dl><dl class="metric"><dt>Offer</dt><dd>${escapeHtml(assignment.offerId)}</dd></dl><dl class="metric"><dt>Jastiper</dt><dd>${escapeHtml(assignment.assignedJastiperId)}</dd></dl><dl class="metric"><dt>Diperbarui</dt><dd>${escapeHtml(formatDate(assignment.updatedAt))}</dd></dl></section>${paymentForm}${requesterPaidCard}${jastiperDeliveryCard}${deliveryForm}</div><aside class="stack"><section class="card"><h2>Catatan</h2><p>Status penugasan dibaca dari service. Refresh halaman tetap memuat data yang sama dari URL ini.</p></section></aside></div>`);
   } catch (problem) {
     if (token !== renderToken) return;
     if (problem.status === 404) {
@@ -278,6 +288,91 @@ async function renderAssignmentDetail(assignmentId, notice = '') {
     } else {
       app.innerHTML = shell(`${pageHeading('Detail penugasan', 'Data penugasan')}${stateError(problem, 'retry-assignment')}`);
     }
+  }
+}
+
+function initDeliveryMap(delivery, locations, role) {
+  const mapContainer = document.getElementById('delivery-map');
+  if (!mapContainer) return;
+  if (!window.L) {
+    mapContainer.innerHTML = '<div style="padding:1rem;color:var(--text-muted);">Memuat modul peta OpenStreetMap...</div>';
+    return;
+  }
+
+  if (window.__titipinMap) {
+    try { window.__titipinMap.remove(); } catch {}
+    window.__titipinMap = null;
+    window.__titipinPin = null;
+  }
+
+  let centerLat = -6.2088;
+  let centerLng = 106.8456;
+  let zoom = 12;
+
+  if (delivery.lastLocation?.latitude && delivery.lastLocation?.longitude) {
+    centerLat = Number(delivery.lastLocation.latitude);
+    centerLng = Number(delivery.lastLocation.longitude);
+    zoom = 14;
+  } else if (locations.length > 0 && locations[0].latitude && locations[0].longitude) {
+    centerLat = Number(locations[0].latitude);
+    centerLng = Number(locations[0].longitude);
+    zoom = 14;
+  }
+
+  const map = window.L.map('delivery-map').setView([centerLat, centerLng], zoom);
+  window.__titipinMap = map;
+
+  window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
+  }).addTo(map);
+
+  if (locations.length > 0) {
+    const sorted = [...locations].sort((a, b) => new Date(a.recordedAt) - new Date(b.recordedAt));
+    const points = sorted.map((loc) => [Number(loc.latitude), Number(loc.longitude)]);
+
+    window.L.polyline(points, { color: '#0284c7', weight: 4, opacity: 0.8, dashArray: '6, 6' }).addTo(map);
+
+    sorted.forEach((loc, index) => {
+      const isLatest = index === sorted.length - 1;
+      const marker = window.L.circleMarker([Number(loc.latitude), Number(loc.longitude)], {
+        radius: isLatest ? 8 : 5,
+        fillColor: isLatest ? '#16a34a' : '#0284c7',
+        color: '#ffffff',
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.9,
+      }).addTo(map);
+      marker.bindPopup(`<b>Titik #${index + 1}</b><br>Waktu: ${formatDate(loc.recordedAt)}<br>Koordinat: ${Number(loc.latitude).toFixed(4)}, ${Number(loc.longitude).toFixed(4)}`);
+      if (isLatest) marker.openPopup();
+    });
+
+    if (points.length > 1) {
+      map.fitBounds(window.L.latLngBounds(points), { padding: [30, 30] });
+    }
+  } else if (delivery.lastLocation) {
+    const lat = Number(delivery.lastLocation.latitude);
+    const lng = Number(delivery.lastLocation.longitude);
+    window.__titipinPin = window.L.marker([lat, lng]).addTo(map)
+      .bindPopup(`<b>Lokasi Terakhir</b><br>${lat.toFixed(4)}, ${lng.toFixed(4)}`)
+      .openPopup();
+  }
+
+  if (role === 'jastiper') {
+    map.on('click', (e) => {
+      const lat = e.latlng.lat.toFixed(6);
+      const lng = e.latlng.lng.toFixed(6);
+      const form = document.querySelector('#location-form');
+      if (form) {
+        form.elements.latitude.value = lat;
+        form.elements.longitude.value = lng;
+      }
+      if (window.__titipinPin) {
+        window.__titipinPin.setLatLng(e.latlng).bindPopup(`Titik dipilih: ${lat}, ${lng}`).openPopup();
+      } else {
+        window.__titipinPin = window.L.marker(e.latlng).addTo(map).bindPopup(`Titik dipilih: ${lat}, ${lng}`).openPopup();
+      }
+    });
   }
 }
 
@@ -293,9 +388,99 @@ async function renderDeliveryDetail(deliveryId) {
     const delivery = deliveryResult.data;
     const role = auth.getSession()?.user?.role;
     const locations = locationsResult.data?.items || [];
-    const locationForm = role === 'jastiper' ? `<section class="card"><h2>Kirim lokasi terbaru</h2><form id="location-form"><div class="form-grid"><div class="field" data-field="latitude"><label>Latitude</label><input name="latitude" type="number" step="any" min="-90" max="90" required><div class="field-error"></div></div><div class="field" data-field="longitude"><label>Longitude</label><input name="longitude" type="number" step="any" min="-180" max="180" required><div class="field-error"></div></div></div><button class="btn btn-primary" type="submit">Simpan lokasi</button></form></section>` : '';
-    const receiptForm = role === 'requester' && ['delivered', 'in_transit', 'pending'].includes(delivery.status) ? `<section class="card"><h2>Konfirmasi penerimaan</h2><p>Konfirmasi setelah paket diterima.</p><form id="receipt-form"><div class="form-grid"><div class="field" data-field="recipientName"><label>Nama penerima</label><input name="recipientName" required><div class="field-error"></div></div><div class="field full" data-field="note"><label>Catatan</label><textarea name="note" maxlength="500"></textarea><div class="field-error"></div></div></div><button class="btn btn-primary" type="submit">Konfirmasi diterima</button></form></section>` : '';
-    app.innerHTML = shell(`${pageHeading('Detail pengantaran', `Delivery ${delivery.deliveryId}`, '<a class="btn btn-secondary" href="/dashboard" data-nav>Kembali</a>')}<div class="detail-layout"><div class="stack"><section class="card"><div class="actions" style="justify-content:space-between"><span class="badge">${escapeHtml(delivery.deliveryId)}</span>${badge(delivery.status)}</div><dl class="metric"><dt>Alamat</dt><dd>${escapeHtml(delivery.deliveryAddress)}</dd></dl><dl class="metric"><dt>Dibuat</dt><dd>${escapeHtml(formatDate(delivery.createdAt))}</dd></dl><dl class="metric"><dt>Lokasi terakhir</dt><dd>${delivery.lastLocation ? `${delivery.lastLocation.latitude}, ${delivery.lastLocation.longitude}` : 'Belum ada'}</dd></dl></section><section class="card"><h2>Histori lokasi</h2>${locations.length ? `<div class="timeline">${locations.map((location) => `<div class="timeline-item"><strong>${escapeHtml(`${location.latitude}, ${location.longitude}`)}</strong><span>${escapeHtml(formatDate(location.recordedAt))}</span></div>`).join('')}</div>` : stateEmpty('Belum ada lokasi.', 'Lokasi akan tampil setelah jastiper mengirim pembaruan.')}</section>${locationForm}${receiptForm}</div><aside class="stack"><section class="card"><h2>Perlindungan perubahan</h2><p>Setiap pengiriman lokasi dan konfirmasi membawa ETag terakhir sehingga perubahan bersamaan dapat dijelaskan dengan jelas.</p></section></aside></div>`);
+
+    if (delivery.assignmentId) {
+      try { localStorage.setItem('titipin.dlv.' + delivery.assignmentId, delivery.deliveryId); } catch {}
+    }
+
+    let statusDescription = 'Pengantaran baru dibuat, menunggu pembaruan lokasi pertama.';
+    if (delivery.status === 'in_transit') statusDescription = 'Paket sedang dalam perjalanan oleh jastiper.';
+    if (delivery.status === 'delivered') statusDescription = 'Jastiper telah menyerahkan barang. Menunggu konfirmasi pemesan.';
+    if (delivery.status === 'confirmed') statusDescription = 'Penerimaan telah dikonfirmasi oleh pemesan. Transaksi selesai!';
+
+    const mapSection = `<section class="card">
+      <div class="actions" style="justify-content:space-between;align-items:center;">
+        <div>
+          <h2>Peta Pelacakan (OpenStreetMap)</h2>
+          <p style="margin:0;color:var(--text-muted);font-size:0.9rem;">
+            ${role === 'jastiper' ? 'Klik langsung di peta untuk memilih titik lokasi pengantaran Anda.' : 'Posisi terkini dan histori rute perjalanan jastiper.'}
+          </p>
+        </div>
+        ${role === 'jastiper' && ['pending', 'in_transit'].includes(delivery.status) ? `<button class="btn btn-secondary btn-small" type="button" data-action="use-gps">📍 Gunakan Lokasi GPS Saya</button>` : ''}
+      </div>
+      ${role === 'jastiper' && ['pending', 'in_transit'].includes(delivery.status) ? `<div style="display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center;margin-top:0.75rem;">
+        <span style="font-size:0.85rem;color:var(--text-muted);">Pilih cepat:</span>
+        <button type="button" class="btn btn-secondary btn-small" data-action="set-coord" data-lat="-6.1754" data-lng="106.8272">Jakarta</button>
+        <button type="button" class="btn btn-secondary btn-small" data-action="set-coord" data-lat="-6.9175" data-lng="107.6191">Bandung</button>
+        <button type="button" class="btn btn-secondary btn-small" data-action="set-coord" data-lat="-7.2575" data-lng="112.7521">Surabaya</button>
+        <button type="button" class="btn btn-secondary btn-small" data-action="set-coord" data-lat="-7.7956" data-lng="110.3695">Yogyakarta</button>
+        <button type="button" class="btn btn-secondary btn-small" data-action="set-coord" data-lat="-8.6705" data-lng="115.2126">Bali</button>
+      </div>` : ''}
+      <div id="delivery-map" style="height: 380px; width: 100%; border-radius: 8px; margin-top: 0.75rem; border: 1px solid #cbd5e1; z-index: 1;"></div>
+    </section>`;
+
+    const locationForm = role === 'jastiper' && ['pending', 'in_transit'].includes(delivery.status) ? `<section class="card">
+      <h2>Kirim lokasi terbaru</h2>
+      <p>Klik titik di peta OpenStreetMap di atas untuk otomatis mengisi koordinat, atau gunakan GPS.</p>
+      <form id="location-form">
+        <div class="form-grid">
+          <div class="field" data-field="latitude"><label>Latitude</label><input name="latitude" type="number" step="any" min="-90" max="90" required><div class="field-error"></div></div>
+          <div class="field" data-field="longitude"><label>Longitude</label><input name="longitude" type="number" step="any" min="-180" max="180" required><div class="field-error"></div></div>
+        </div>
+        <div class="actions" style="margin-top:1rem;">
+          <button class="btn btn-primary" type="submit">Simpan lokasi pengantaran</button>
+        </div>
+      </form>
+    </section>` : '';
+
+    const jastiperCompleteSection = role === 'jastiper' && delivery.status === 'in_transit' ? `<section class="card" style="background:#f0fdf4;border:1px solid #86efac;">
+      <h2 style="color:#166534;">Selesaikan Pengantaran</h2>
+      <p>Jika Anda sudah sampai di alamat tujuan dan menyerahkan barang kepada pemesan, klik tombol berikut agar pemesan dapat mengonfirmasi penerimaan.</p>
+      <div style="margin-top:1rem;">
+        <button class="btn btn-primary" type="button" data-action="mark-delivered">🏁 Tandai Barang Sudah Sampai / Diserahkan</button>
+      </div>
+    </section>` : '';
+
+    const jastiperWaitingSection = role === 'jastiper' && delivery.status === 'delivered' ? `<section class="card" style="background:#fefce8;border:1px solid #fde047;">
+      <h2 style="color:#854d0e;">Menunggu Konfirmasi Pemesan</h2>
+      <p>Anda telah menandai barang sampai. Menunggu pemesan memeriksa kondisi barang dan mengonfirmasi penerimaan melalui akun pemesan.</p>
+    </section>` : '';
+
+    const receiptForm = role === 'requester' && ['delivered', 'in_transit'].includes(delivery.status) ? `<section class="card" style="background:#f0fdf4;border:1px solid #86efac;">
+      <h2 style="color:#166534;">Konfirmasi penerimaan</h2>
+      <p>${delivery.status === 'delivered' ? 'Jastiper telah menyerahkan barang. Silakan periksa barang lalu konfirmasi di bawah ini.' : 'Paket sedang dalam perjalanan. Jika paket sudah Anda terima, silakan konfirmasi di bawah ini.'}</p>
+      <form id="receipt-form">
+        <div class="form-grid">
+          <div class="field" data-field="recipientName"><label>Nama penerima</label><input name="recipientName" required><div class="field-error"></div></div>
+          <div class="field full" data-field="note"><label>Catatan</label><textarea name="note" maxlength="500" placeholder="Contoh: Paket diterima lengkap dalam kondisi baik."></textarea><div class="field-error"></div></div>
+        </div>
+        <div style="margin-top:1rem;">
+          <button class="btn btn-primary" type="submit">Konfirmasi diterima & Selesaikan transaksi</button>
+        </div>
+      </form>
+    </section>` : '';
+
+    const confirmedCard = delivery.status === 'confirmed' ? `<section class="card" style="background:#f0fdf4;border:1px solid #86efac;">
+      <h2 style="color:#166534;">🎉 Transaksi Selesai</h2>
+      <p>Pengantaran paket telah dikonfirmasi diterima oleh pemesan. Seluruh alur transaksi (Request, Assignment, dan Delivery) telah berstatus <strong>completed / confirmed</strong>.</p>
+      ${delivery.confirmedAt ? `<p style="margin:0;font-size:0.9rem;color:var(--text-muted);">Waktu konfirmasi: ${escapeHtml(formatDate(delivery.confirmedAt))}</p>` : ''}
+    </section>` : '';
+
+    app.innerHTML = shell(`${pageHeading('Detail pengantaran', `Delivery ${delivery.deliveryId}`, '<a class="btn btn-secondary" href="/dashboard" data-nav>Kembali</a>')}<div class="detail-layout"><div class="stack"><section class="card"><div class="actions" style="justify-content:space-between"><span class="badge">${escapeHtml(delivery.deliveryId)}</span>${badge(delivery.status)}</div><p style="margin:0.25rem 0 1rem 0;color:var(--text-muted);">${escapeHtml(statusDescription)}</p><dl class="metric"><dt>Alamat Tujuan</dt><dd>${escapeHtml(delivery.deliveryAddress)}</dd></dl><dl class="metric"><dt>Dibuat</dt><dd>${escapeHtml(formatDate(delivery.createdAt))}</dd></dl><dl class="metric"><dt>Dimulai</dt><dd>${delivery.startedAt ? escapeHtml(formatDate(delivery.startedAt)) : 'Belum dimulai'}</dd></dl><dl class="metric"><dt>Lokasi terakhir</dt><dd>${delivery.lastLocation ? `${delivery.lastLocation.latitude}, ${delivery.lastLocation.longitude}` : 'Belum ada'}</dd></dl></section>${mapSection}<section class="card"><h2>Histori lokasi</h2>${locations.length ? `<div class="timeline">${locations.map((location) => `<div class="timeline-item"><strong>${escapeHtml(`${location.latitude}, ${location.longitude}`)}</strong><span>${escapeHtml(formatDate(location.recordedAt))}</span></div>`).join('')}</div>` : stateEmpty('Belum ada lokasi.', 'Lokasi akan tampil setelah jastiper mengirim pembaruan.')}</section>${locationForm}${jastiperCompleteSection}${jastiperWaitingSection}${receiptForm}${confirmedCard}</div><aside class="stack"><section class="card"><h2>Alur Pengantaran</h2><ol style="margin:0;padding-left:1.25rem;line-height:1.7;color:var(--text-muted);font-size:0.9rem;"><li>Jastiper mengirim lokasi via peta OpenStreetMap (status: in_transit).</li><li>Jastiper menandai barang telah sampai (status: delivered).</li><li>Pemesan memeriksa paket & konfirmasi penerimaan (status: confirmed / completed).</li></ol></section><section class="card"><h2>Perlindungan perubahan</h2><p>Setiap pengiriman lokasi dan konfirmasi membawa ETag terakhir sehingga perubahan bersamaan dapat dijelaskan dengan jelas.</p></section></aside></div>`);
+
+    initDeliveryMap(delivery, locations, role);
+
+    if (['pending', 'in_transit'].includes(delivery.status)) {
+      pollTimer = setInterval(async () => {
+        try {
+          const freshLocations = await api.listLocations(deliveryId, { conditional: false });
+          if (token !== renderToken) return;
+          if (freshLocations.data?.items?.length !== locations.length) {
+            await renderDeliveryDetail(deliveryId);
+          }
+        } catch {}
+      }, 15000);
+    }
   } catch (problem) {
     if (token !== renderToken) return;
     app.innerHTML = shell(`${pageHeading('Detail pengantaran', 'Data pengantaran')}${problem.status === 404 ? notFoundState() : stateError(problem)}`);
@@ -374,7 +559,12 @@ async function submitDelivery(form) {
   submit.textContent = 'Membuat pengantaran...';
   try {
     const result = await api.createDelivery(activeContext.assignment.assignmentId, isoFromInput(form.elements.purchaseRecordedAt.value), activeContext.assignmentEtag);
-    navigate(`/deliveries/${encodeURIComponent(result.data.deliveryId)}`);
+    if (result?.data?.deliveryId) {
+      try { localStorage.setItem('titipin.dlv.' + activeContext.assignment.assignmentId, result.data.deliveryId); } catch {}
+      navigate(`/deliveries/${encodeURIComponent(result.data.deliveryId)}`);
+    } else {
+      await renderAssignmentDetail(activeContext.assignment.assignmentId, 'Pengantaran berhasil dibuat.');
+    }
   } catch (problem) {
     setFormErrors(form, problem);
     submit.disabled = false;
@@ -386,15 +576,40 @@ async function submitDelivery(form) {
 async function submitLocation(form) {
   if (!validateRequired(form, [['latitude', 'Latitude wajib diisi.'], ['longitude', 'Longitude wajib diisi.']])) return;
   const submit = form.querySelector('button[type="submit"]'); submit.disabled = true;
-  try { await api.createLocation(activeContext.delivery.deliveryId, { latitude: Number(form.elements.latitude.value), longitude: Number(form.elements.longitude.value), recordedAt: new Date().toISOString() }, activeContext.deliveryEtag); await renderDeliveryDetail(activeContext.delivery.deliveryId); }
-  catch (problem) { setFormErrors(form, problem); submit.disabled = false; }
+  const origText = submit.textContent;
+  submit.textContent = 'Menyimpan lokasi...';
+  try {
+    await api.createLocation(activeContext.delivery.deliveryId, {
+      latitude: Number(form.elements.latitude.value),
+      longitude: Number(form.elements.longitude.value),
+      recordedAt: new Date().toISOString()
+    }, activeContext.deliveryEtag);
+    await renderDeliveryDetail(activeContext.delivery.deliveryId);
+  } catch (problem) {
+    setFormErrors(form, problem);
+    submit.disabled = false;
+    submit.textContent = origText;
+  }
 }
 
 async function submitReceipt(form) {
   if (!validateRequired(form, [['recipientName', 'Nama penerima wajib diisi.']])) return;
   const submit = form.querySelector('button[type="submit"]'); submit.disabled = true;
-  try { const result = await api.confirmReceipt(activeContext.delivery.deliveryId, { confirmedAt: new Date().toISOString(), recipientName: form.elements.recipientName.value.trim(), note: form.elements.note.value.trim() || null }, activeContext.deliveryEtag); form.innerHTML = `<div class="stale" role="status">Penerimaan dikonfirmasi dengan ID ${escapeHtml(result.data.confirmationId)}.</div>`; }
-  catch (problem) { setFormErrors(form, problem); submit.disabled = false; if (problem.status === 412) await renderDeliveryDetail(activeContext.delivery.deliveryId); }
+  const origText = submit.textContent;
+  submit.textContent = 'Menyimpan konfirmasi...';
+  try {
+    await api.confirmReceipt(activeContext.delivery.deliveryId, {
+      confirmedAt: new Date().toISOString(),
+      recipientName: form.elements.recipientName.value.trim(),
+      note: form.elements.note.value.trim() || null
+    }, activeContext.deliveryEtag);
+    await renderDeliveryDetail(activeContext.delivery.deliveryId);
+  } catch (problem) {
+    setFormErrors(form, problem);
+    submit.disabled = false;
+    submit.textContent = origText;
+    if (problem.status === 412) await renderDeliveryDetail(activeContext.delivery.deliveryId);
+  }
 }
 
 async function submitResolution(form) {
@@ -431,6 +646,68 @@ async function handleClick(event) {
   if (action === 'retry-assignment') { const id = window.location.pathname.split('/')[2]; return renderAssignmentDetail(decodeURIComponent(id)); }
   if (action === 'reload-request') { const id = window.location.pathname.split('/')[2]; return renderRequestDetail(decodeURIComponent(id)); }
   if (action === 'reload-assignment') { const id = window.location.pathname.split('/')[2]; return renderAssignmentDetail(decodeURIComponent(id)); }
+  if (action === 'mark-delivered') {
+    button.disabled = true;
+    button.textContent = 'Menyimpan status...';
+    try {
+      await api.markDelivered(activeContext.delivery.deliveryId, activeContext.deliveryEtag);
+      await renderDeliveryDetail(activeContext.delivery.deliveryId);
+    } catch (problem) {
+      alert(problem?.detail || 'Gagal memperbarui status pengantaran.');
+      button.disabled = false;
+      button.textContent = '🏁 Tandai Barang Sudah Sampai / Diserahkan';
+    }
+    return;
+  }
+  if (action === 'use-gps') {
+    if (!navigator.geolocation) {
+      alert('Browser Anda tidak mendukung Geolocation GPS.');
+      return;
+    }
+    button.disabled = true;
+    const orig = button.textContent;
+    button.textContent = '📍 Mendeteksi GPS...';
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        button.disabled = false;
+        button.textContent = orig;
+        const lat = pos.coords.latitude.toFixed(6);
+        const lng = pos.coords.longitude.toFixed(6);
+        const form = document.querySelector('#location-form');
+        if (form) {
+          form.elements.latitude.value = lat;
+          form.elements.longitude.value = lng;
+        }
+        if (window.__titipinMap && window.L) {
+          window.__titipinMap.setView([lat, lng], 15);
+          if (window.__titipinPin) window.__titipinPin.setLatLng([lat, lng]);
+          else window.__titipinPin = window.L.marker([lat, lng]).addTo(window.__titipinMap).bindPopup('Lokasi GPS Anda').openPopup();
+        }
+      },
+      (err) => {
+        button.disabled = false;
+        button.textContent = orig;
+        alert('Gagal mendeteksi lokasi GPS: ' + err.message);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+    return;
+  }
+  if (action === 'set-coord') {
+    const lat = button.dataset.lat;
+    const lng = button.dataset.lng;
+    const form = document.querySelector('#location-form');
+    if (form) {
+      form.elements.latitude.value = lat;
+      form.elements.longitude.value = lng;
+    }
+    if (window.__titipinMap && window.L) {
+      window.__titipinMap.setView([lat, lng], 14);
+      if (window.__titipinPin) window.__titipinPin.setLatLng([lat, lng]);
+      else window.__titipinPin = window.L.marker([lat, lng]).addTo(window.__titipinMap).bindPopup(button.textContent).openPopup();
+    }
+    return;
+  }
   if (action === 'select-offer') {
     button.disabled = true;
     try {

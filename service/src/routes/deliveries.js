@@ -184,4 +184,26 @@ router.post('/:deliveryId/receipt-confirmations', requireScope('requests:write')
     .send(response.body);
 });
 
+router.post('/:deliveryId/delivered', requireScope('deliveries:write'), async (req, res) => {
+  const invalidId = validateDeliveryId(req.params.deliveryId);
+  if (invalidId.length) return sendProblem(res, 'invalid-request', { extensions: { invalidParameters: invalidId } });
+
+  const actor = await resolveActor(req.principal);
+  const delivery = await getDeliveryById(req.params.deliveryId, actor);
+  if (!mayWriteLocation(actor, delivery)) {
+    return sendProblem(res, 'resource-not-found');
+  }
+
+  const { getPool } = require('../store/db');
+  await getPool().query(
+    `UPDATE public.deliveries
+     SET status = 'delivered', delivered_at = CURRENT_TIMESTAMP
+     WHERE delivery_id = $1 AND status IN ('pending', 'in_transit')`,
+    [req.params.deliveryId]
+  );
+
+  const updated = await getDeliveryById(req.params.deliveryId, actor);
+  return res.status(200).json(toDelivery(updated));
+});
+
 module.exports = router;

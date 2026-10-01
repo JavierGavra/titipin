@@ -230,6 +230,10 @@ export function confirmReceipt(deliveryId, body, ifMatch) {
   return request(`/deliveries/${encodeURIComponent(deliveryId)}/receipt-confirmations`, { method: 'POST', body, idempotent: true, ifMatch, cacheKey: `/deliveries/${deliveryId}` });
 }
 
+export function markDelivered(deliveryId, ifMatch) {
+  return request(`/deliveries/${encodeURIComponent(deliveryId)}/delivered`, { method: 'POST', idempotent: true, ifMatch, cacheKey: `/deliveries/${deliveryId}` });
+}
+
 export function listIssues({ status, cursor, limit = 50, conditional = true } = {}) {
   const params = new URLSearchParams({ limit: String(limit) });
   if (status) params.set('status', status);
