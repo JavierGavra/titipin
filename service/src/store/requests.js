@@ -17,6 +17,9 @@ async function getRequestById(requestId, actor, db = getPool(), lock = false) {
        a.offer_id AS selected_offer_id,
        a.assigned_jastiper_id,
        a.assignment_id,
+       a.status AS assignment_status,
+       (SELECT delivery_id FROM public.deliveries WHERE assignment_id = a.assignment_id LIMIT 1) AS delivery_id,
+       (SELECT status FROM public.deliveries WHERE assignment_id = a.assignment_id LIMIT 1) AS delivery_status,
        r.created_at,
        r.updated_at,
        EXISTS (SELECT 1 FROM public.request_access ra
@@ -47,6 +50,9 @@ async function listRequests(actor, { status, limit, offset }) {
        a.offer_id AS selected_offer_id,
        a.assigned_jastiper_id,
        a.assignment_id,
+       a.status AS assignment_status,
+       (SELECT delivery_id FROM public.deliveries WHERE assignment_id = a.assignment_id LIMIT 1) AS delivery_id,
+       (SELECT status FROM public.deliveries WHERE assignment_id = a.assignment_id LIMIT 1) AS delivery_status,
        r.created_at,
        r.updated_at,
        EXISTS (SELECT 1 FROM public.request_access ra

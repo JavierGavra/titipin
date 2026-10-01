@@ -138,19 +138,42 @@ function renderDashboardContent() {
   } else {
     body = `<div class="card-grid">${data.items.map((item) => {
       const asgId = item.assignmentId || localStorage.getItem('titipin.asg.' + item.requestId);
-      return `<a class="card card-link" href="/requests/${encodeURIComponent(item.requestId)}" data-nav>
-        <div class="actions" style="justify-content:space-between">
-          <span class="badge">${escapeHtml(item.requestId)}</span>
-          <div style="display:flex;gap:0.4rem;align-items:center;">
-            ${asgId ? `<span class="badge" style="background:#e0f2fe;color:#0369a1;">Penugasan Ada</span>` : ''}
-            ${badge(item.status)}
+      const dlvId = item.deliveryId || (asgId ? localStorage.getItem('titipin.dlv.' + asgId) : null);
+      if (asgId) { try { localStorage.setItem('titipin.asg.' + item.requestId, asgId); } catch {} }
+      if (dlvId && asgId) { try { localStorage.setItem('titipin.dlv.' + asgId, dlvId); } catch {} }
+
+      let stepBadge = '';
+      if (item.status === 'completed') {
+        stepBadge = `<span class="badge" style="background:#f0fdf4;color:#166534;">Selesai</span>`;
+      } else if (item.deliveryStatus === 'delivered') {
+        stepBadge = `<span class="badge" style="background:#fef08a;color:#854d0e;font-weight:600;">📦 Barang Sampai!</span>`;
+      } else if (item.deliveryStatus === 'in_transit' || dlvId) {
+        stepBadge = `<span class="badge" style="background:#e0f2fe;color:#0369a1;">🚚 Sedang Diantar</span>`;
+      } else if (item.assignmentStatus === 'purchased') {
+        stepBadge = `<span class="badge" style="background:#f0fdf4;color:#166534;">Sudah Dibayar</span>`;
+      } else if (asgId) {
+        stepBadge = `<span class="badge" style="background:#e0f2fe;color:#0369a1;">Penugasan Ada</span>`;
+      }
+
+      return `<div class="card" style="display:flex;flex-direction:column;justify-content:space-between;">
+        <div>
+          <div class="actions" style="justify-content:space-between">
+            <span class="badge">${escapeHtml(item.requestId)}</span>
+            <div style="display:flex;gap:0.4rem;align-items:center;">
+              ${stepBadge}
+              ${badge(item.status)}
+            </div>
           </div>
+          <h2 style="margin:0.5rem 0;"><a href="/requests/${encodeURIComponent(item.requestId)}" data-nav style="text-decoration:none;color:inherit;">${escapeHtml(item.itemDescription)}</a></h2>
+          <p>${escapeHtml(item.quantity)} unit · ${escapeHtml(item.targetStoreOrArea)}</p>
+          <dl class="metric"><dt>Anggaran</dt><dd>${formatMoney(item.budget)}</dd></dl>
+          <dl class="metric"><dt>Batas waktu</dt><dd>${escapeHtml(formatDate(item.deadline))}</dd></dl>
         </div>
-        <h2>${escapeHtml(item.itemDescription)}</h2>
-        <p>${escapeHtml(item.quantity)} unit · ${escapeHtml(item.targetStoreOrArea)}</p>
-        <dl class="metric"><dt>Anggaran</dt><dd>${formatMoney(item.budget)}</dd></dl>
-        <dl class="metric"><dt>Batas waktu</dt><dd>${escapeHtml(formatDate(item.deadline))}</dd></dl>
-      </a>`;
+        <div class="actions" style="margin-top:1rem;gap:0.5rem;flex-wrap:wrap;">
+          <a class="btn btn-secondary btn-small" href="/requests/${encodeURIComponent(item.requestId)}" data-nav>Detail</a>
+          ${dlvId ? `<a class="btn ${item.deliveryStatus === 'delivered' ? 'btn-primary' : 'btn-secondary'} btn-small" href="/deliveries/${encodeURIComponent(dlvId)}" data-nav>${item.deliveryStatus === 'delivered' ? 'Konfirmasi Diterima' : 'Pantau Pengantaran'}</a>` : (asgId ? `<a class="btn btn-primary btn-small" href="/assignments/${encodeURIComponent(asgId)}" data-nav>${item.assignmentStatus === 'purchased' ? 'Buka Penugasan' : 'Bayar Pesanan'}</a>` : '')}
+        </div>
+      </div>`;
     }).join('')}</div>`;
   }
   app.innerHTML = shell(`${pageHeading(title, detail, role === 'requester' ? '<a class="btn btn-primary" href="/requests/new" data-nav>Buat permintaan</a>' : '')}${staleBanner}${body}<p class="footer-note">${escapeHtml(fetched)} · Daftar diperbarui otomatis setiap 15 detik.</p>`);
@@ -225,6 +248,10 @@ function renderRequestDetailContent(requestId, request, offersPage, notice = '')
   const role = session?.user?.role;
   const offers = offersPage?.items || [];
   const knownAssignmentId = request.assignmentId || localStorage.getItem('titipin.asg.' + requestId) || null;
+  const knownDeliveryId = request.deliveryId || (knownAssignmentId ? localStorage.getItem('titipin.dlv.' + knownAssignmentId) : null);
+  if (knownAssignmentId) { try { localStorage.setItem('titipin.asg.' + requestId, knownAssignmentId); } catch {} }
+  if (knownDeliveryId && knownAssignmentId) { try { localStorage.setItem('titipin.dlv.' + knownAssignmentId, knownDeliveryId); } catch {} }
+
   const offerSection = offers.length ? `<div class="stack">${offers.map((offer) => `<article class="offer"><div><h3>${formatMoney(offer.totalAmount)} · ${badge(offer.status)}</h3><p>Harga barang ${formatMoney(offer.itemPrice)} · Jasa ${formatMoney(offer.serviceFee)} · Antar ${formatMoney(offer.deliveryFee)}</p><p>${escapeHtml(offer.note || 'Tidak ada catatan tambahan.')} · tiba ${escapeHtml(formatDate(offer.estimatedArrivalAt))}</p></div>${role === 'requester' && request.status === 'open' && offer.status === 'active' ? `<button class="btn btn-primary btn-small" data-action="select-offer" data-offer-id="${escapeHtml(offer.offerId)}">Pilih penawaran</button>` : ''}</article>`).join('')}</div>` : stateEmpty('Belum ada penawaran.', role === 'jastiper' ? 'Jadilah penawar pertama untuk permintaan ini.' : 'Jastiper akan melihat permintaan ini dan mengirimkan penawaran.');
   const offerForm = role === 'jastiper' && request.status === 'open' ? `<section class="card"><h2>Ajukan penawaran</h2><p>Semua nominal adalah IDR. Service akan memvalidasi kembali data ini.</p><form id="offer-form" novalidate><div class="form-grid"><div class="field" data-field="itemPrice"><label>Harga barang</label><input name="itemPrice" type="number" min="0" required><div class="field-error"></div></div><div class="field" data-field="serviceFee"><label>Biaya jasa</label><input name="serviceFee" type="number" min="0" required><div class="field-error"></div></div><div class="field" data-field="deliveryFee"><label>Biaya antar</label><input name="deliveryFee" type="number" min="0" required><div class="field-error"></div></div><div class="field" data-field="estimatedArrivalAt"><label>Perkiraan tiba</label><input name="estimatedArrivalAt" type="datetime-local" required><div class="field-error"></div></div><div class="field" data-field="stockCheckedAt"><label>Stok dicek pada</label><input name="stockCheckedAt" type="datetime-local" required><div class="field-error"></div></div><div class="field" data-field="expiresAt"><label>Penawaran berlaku sampai</label><input name="expiresAt" type="datetime-local" required><div class="field-error"></div></div><div class="field full" data-field="note"><label>Catatan (opsional)</label><textarea name="note" maxlength="500"></textarea><div class="field-error"></div></div></div><button class="btn btn-primary" type="submit">Kirim penawaran</button></form></section>` : '';
   const noticeHtml = notice ? `<div class="stale" role="status"><span>${escapeHtml(notice)}</span><button class="btn btn-secondary btn-small" data-action="reload-request">Muat ulang</button></div>` : '';
@@ -232,24 +259,50 @@ function renderRequestDetailContent(requestId, request, offersPage, notice = '')
   let actionBanner = '';
   if (request.status === 'assigned') {
     if (role === 'requester') {
-      actionBanner = `<div class="stale" style="background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;" role="status">
-        <div><strong>Penawaran Telah Dipilih!</strong><p style="margin:0.25rem 0 0 0;">Lanjutkan ke tahap pembayaran pesanan agar Jastiper dapat segera membelikan pesanan Anda.</p></div>
-        ${knownAssignmentId ? `<a class="btn btn-primary btn-small" href="/assignments/${encodeURIComponent(knownAssignmentId)}" data-nav>Bayar Pesanan Sekarang</a>` : ''}
-      </div>`;
+      if (knownDeliveryId) {
+        if (request.deliveryStatus === 'delivered') {
+          actionBanner = `<div class="stale" style="background:#fefce8;border:1px solid #facc15;color:#854d0e;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;" role="status">
+            <div><strong>📦 Barang Telah Sampai di Tujuan!</strong><p style="margin:0.25rem 0 0 0;">Jastiper telah menyerahkan barang. Silakan periksa barang pesanan Anda dan konfirmasi penerimaan untuk menyelesaikan transaksi.</p></div>
+            <a class="btn btn-primary" href="/deliveries/${encodeURIComponent(knownDeliveryId)}" data-nav>Konfirmasi Penerimaan Sekarang</a>
+          </div>`;
+        } else {
+          actionBanner = `<div class="stale" style="background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;" role="status">
+            <div><strong>🚚 Pengantaran Sedang Berjalan</strong><p style="margin:0.25rem 0 0 0;">Jastiper sedang mengantarkan pesanan Anda. Anda dapat memantau posisi pengantaran via OpenStreetMap.</p></div>
+            <a class="btn btn-primary btn-small" href="/deliveries/${encodeURIComponent(knownDeliveryId)}" data-nav>Pantau Lokasi Pengantaran</a>
+          </div>`;
+        }
+      } else if (request.assignmentStatus === 'purchased') {
+        actionBanner = `<div class="stale" style="background:#f0fdf4;border:1px solid #86efac;color:#166534;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;" role="status">
+          <div><strong>Pembayaran Dikonfirmasi!</strong><p style="margin:0.25rem 0 0 0;">Pembayaran berhasil. Saat ini menunggu jastiper membeli barang dan memulai pengantaran.</p></div>
+          ${knownAssignmentId ? `<a class="btn btn-secondary btn-small" href="/assignments/${encodeURIComponent(knownAssignmentId)}" data-nav>Buka Penugasan</a>` : ''}
+        </div>`;
+      } else {
+        actionBanner = `<div class="stale" style="background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;" role="status">
+          <div><strong>Penawaran Telah Dipilih!</strong><p style="margin:0.25rem 0 0 0;">Lanjutkan ke tahap pembayaran pesanan agar Jastiper dapat segera membelikan pesanan Anda.</p></div>
+          ${knownAssignmentId ? `<a class="btn btn-primary btn-small" href="/assignments/${encodeURIComponent(knownAssignmentId)}" data-nav>Bayar Pesanan Sekarang</a>` : ''}
+        </div>`;
+      }
     } else if (role === 'jastiper') {
-      actionBanner = `<div class="stale" style="background:#f0fdf4;border:1px solid #86efac;color:#166534;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;" role="status">
-        <div><strong>Penawaran Anda Telah Dipilih!</strong><p style="margin:0.25rem 0 0 0;">Pemesan telah menyetujui tawaran Anda. Buka halaman penugasan untuk memantau pembayaran dan mulai pengantaran.</p></div>
-        ${knownAssignmentId ? `<a class="btn btn-primary btn-small" href="/assignments/${encodeURIComponent(knownAssignmentId)}" data-nav>Buka Halaman Penugasan</a>` : ''}
-      </div>`;
+      if (knownDeliveryId) {
+        actionBanner = `<div class="stale" style="background:#f0fdf4;border:1px solid #86efac;color:#166534;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;" role="status">
+          <div><strong>Pengantaran Aktif</strong><p style="margin:0.25rem 0 0 0;">Buka halaman pengantaran untuk mengirim lokasi atau menyelesaikan pengantaran.</p></div>
+          <a class="btn btn-primary btn-small" href="/deliveries/${encodeURIComponent(knownDeliveryId)}" data-nav>Buka Pengantaran</a>
+        </div>`;
+      } else {
+        actionBanner = `<div class="stale" style="background:#f0fdf4;border:1px solid #86efac;color:#166534;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;" role="status">
+          <div><strong>Penawaran Anda Telah Dipilih!</strong><p style="margin:0.25rem 0 0 0;">Pemesan telah menyetujui tawaran Anda. Buka halaman penugasan untuk memantau pembayaran dan mulai pengantaran.</p></div>
+          ${knownAssignmentId ? `<a class="btn btn-primary btn-small" href="/assignments/${encodeURIComponent(knownAssignmentId)}" data-nav>Buka Halaman Penugasan</a>` : ''}
+        </div>`;
+      }
     }
   } else if (request.status === 'completed') {
-    actionBanner = `<div class="stale" style="background:#f0fdf4;border:1px solid #86efac;color:#166534;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;" role="status">
-      <div><strong>Transaksi Selesai</strong><p style="margin:0.25rem 0 0 0;">Barang belanjaan telah berhasil diantar dan diterima oleh pemesan.</p></div>
-      ${knownAssignmentId ? `<a class="btn btn-secondary btn-small" href="/assignments/${encodeURIComponent(knownAssignmentId)}" data-nav>Lihat Penugasan</a>` : ''}
+    actionBanner = `<div class="stale" style="background:#f0fdf4;border:1px solid #86efac;color:#166534;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;" role="status">
+      <div><strong>🎉 Transaksi Selesai</strong><p style="margin:0.25rem 0 0 0;">Barang belanjaan telah berhasil diantar dan dikonfirmasi diterima oleh pemesan.</p></div>
+      ${knownDeliveryId ? `<a class="btn btn-secondary btn-small" href="/deliveries/${encodeURIComponent(knownDeliveryId)}" data-nav>Lihat Bukti Pengantaran</a>` : (knownAssignmentId ? `<a class="btn btn-secondary btn-small" href="/assignments/${encodeURIComponent(knownAssignmentId)}" data-nav>Lihat Penugasan</a>` : '')}
     </div>`;
   }
 
-  app.innerHTML = shell(`${pageHeading('Detail permintaan', request.itemDescription, '<a class="btn btn-secondary" href="/dashboard" data-nav>Kembali</a>')}${noticeHtml}${actionBanner}<div class="detail-layout"><div class="stack"><section class="card"><div class="actions" style="justify-content:space-between"><span class="badge">${escapeHtml(request.requestId)}</span><div style="display:flex;gap:0.5rem;align-items:center;">${knownAssignmentId ? `<a href="/assignments/${encodeURIComponent(knownAssignmentId)}" class="btn btn-primary btn-small" data-nav>Buka Penugasan</a>` : ''}${badge(request.status)}</div></div><h2>${escapeHtml(request.itemDescription)}</h2><p>${escapeHtml(request.quantity)} unit untuk ${escapeHtml(request.targetStoreOrArea)}</p><dl class="metric"><dt>Anggaran</dt><dd>${formatMoney(request.budget)}</dd></dl><dl class="metric"><dt>Batas waktu</dt><dd>${escapeHtml(formatDate(request.deadline))}</dd></dl>${request.deliveryAddress ? `<dl class="metric"><dt>Alamat pengantaran</dt><dd>${escapeHtml(request.deliveryAddress)}</dd></dl>` : ''}${request.requesterId ? `<dl class="metric"><dt>Pemesan (Internal)</dt><dd>${escapeHtml(request.requesterId)}</dd></dl>` : ''}${request.assignedJastiperId ? `<dl class="metric"><dt>Jastiper (Internal)</dt><dd>${escapeHtml(request.assignedJastiperId)}</dd></dl>` : ''}</section><section class="card"><h2>Penawaran</h2>${offerSection}</section>${offerForm}</div><aside class="stack"><section class="card"><h2>Alur transaksi</h2><div class="timeline"><div class="timeline-item"><strong>Permintaan dibuat</strong><span>${escapeHtml(formatDate(request.createdAt))}</span></div><div class="timeline-item"><strong>Status ${escapeHtml(statusLabel(request.status))}</strong><span>Pembaruan terakhir ${escapeHtml(formatDate(request.updatedAt))}</span></div></div></section><section class="card"><h2>Perlindungan transaksi</h2><p>Setiap tindakan mengirim idempotency key. Perubahan bersamaan memakai ETag agar data rekan kerja tidak tertimpa.</p></section></aside></div>`);
+  app.innerHTML = shell(`${pageHeading('Detail permintaan', request.itemDescription, '<a class="btn btn-secondary" href="/dashboard" data-nav>Kembali</a>')}${noticeHtml}${actionBanner}<div class="detail-layout"><div class="stack"><section class="card"><div class="actions" style="justify-content:space-between"><span class="badge">${escapeHtml(request.requestId)}</span><div style="display:flex;gap:0.5rem;align-items:center;">${knownDeliveryId ? `<a href="/deliveries/${encodeURIComponent(knownDeliveryId)}" class="btn btn-primary btn-small" data-nav>${request.deliveryStatus === 'delivered' ? 'Konfirmasi Diterima' : 'Buka Pengantaran'}</a>` : (knownAssignmentId ? `<a href="/assignments/${encodeURIComponent(knownAssignmentId)}" class="btn btn-primary btn-small" data-nav>Buka Penugasan</a>` : '')}${badge(request.status)}</div></div><h2>${escapeHtml(request.itemDescription)}</h2><p>${escapeHtml(request.quantity)} unit untuk ${escapeHtml(request.targetStoreOrArea)}</p><dl class="metric"><dt>Anggaran</dt><dd>${formatMoney(request.budget)}</dd></dl><dl class="metric"><dt>Batas waktu</dt><dd>${escapeHtml(formatDate(request.deadline))}</dd></dl>${request.deliveryAddress ? `<dl class="metric"><dt>Alamat pengantaran</dt><dd>${escapeHtml(request.deliveryAddress)}</dd></dl>` : ''}${request.requesterId ? `<dl class="metric"><dt>Pemesan (Internal)</dt><dd>${escapeHtml(request.requesterId)}</dd></dl>` : ''}${request.assignedJastiperId ? `<dl class="metric"><dt>Jastiper (Internal)</dt><dd>${escapeHtml(request.assignedJastiperId)}</dd></dl>` : ''}</section><section class="card"><h2>Penawaran</h2>${offerSection}</section>${offerForm}</div><aside class="stack"><section class="card"><h2>Alur transaksi</h2><div class="timeline"><div class="timeline-item"><strong>Permintaan dibuat</strong><span>${escapeHtml(formatDate(request.createdAt))}</span></div><div class="timeline-item"><strong>Status ${escapeHtml(statusLabel(request.status))}</strong><span>Pembaruan terakhir ${escapeHtml(formatDate(request.updatedAt))}</span></div></div></section><section class="card"><h2>Perlindungan transaksi</h2><p>Setiap tindakan mengirim idempotency key. Perubahan bersamaan memakai ETag agar data rekan kerja tidak tertimpa.</p></section></aside></div>`);
 }
 
 async function renderAssignmentDetail(assignmentId, notice = '') {

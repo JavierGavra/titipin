@@ -17,6 +17,9 @@ function toRequest(row, actor) {
     selectedOfferId: row.selected_offer_id,
     assignedJastiperId: row.assigned_jastiper_id,
     assignmentId: row.assignment_id,
+    assignmentStatus: row.assignment_status ?? null,
+    deliveryId: row.delivery_id ?? null,
+    deliveryStatus: row.delivery_status ?? null,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };
