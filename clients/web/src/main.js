@@ -158,6 +158,8 @@ async function refreshDashboard(token) {
 }
 
 function renderRequestForm() {
+  clearInterval(pollTimer);
+  ++renderToken;
   activeContext = {};
   const defaultDeadline = new Date(Date.now() + 86_400_000).toISOString().slice(0, 16);
   app.innerHTML = shell(`${pageHeading('Buat permintaan', 'Jelaskan barang yang ingin dibeli dan tujuan pengantarannya.')}<section class="card form-card"><form id="request-form" novalidate><div class="form-grid"><div class="field full" data-field="itemDescription"><label for="itemDescription">Nama atau deskripsi barang</label><textarea id="itemDescription" name="itemDescription" required maxlength="500"></textarea><small>Contoh: Buku catatan penelitian hardcover A5.</small><div class="field-error"></div></div><div class="field" data-field="quantity"><label for="quantity">Jumlah</label><input id="quantity" name="quantity" type="number" min="1" max="99" value="1" required><div class="field-error"></div></div><div class="field" data-field="budgetAmount"><label for="budgetAmount">Anggaran (IDR)</label><input id="budgetAmount" name="budgetAmount" type="number" min="0" step="1" required><div class="field-error"></div></div><div class="field full" data-field="targetStoreOrArea"><label for="targetStoreOrArea">Toko atau area tujuan</label><input id="targetStoreOrArea" name="targetStoreOrArea" maxlength="300" required><div class="field-error"></div></div><div class="field full" data-field="deliveryAddress"><label for="deliveryAddress">Alamat pengantaran</label><textarea id="deliveryAddress" name="deliveryAddress" maxlength="500" required></textarea><div class="field-error"></div></div><div class="field full" data-field="deadline"><label for="deadline">Batas waktu</label><input id="deadline" name="deadline" type="datetime-local" value="${defaultDeadline}" required><small>Waktu harus berada di masa depan.</small><div class="field-error"></div></div></div><div class="actions" style="justify-content:flex-end;margin-top:1.25rem"><a class="btn btn-secondary" href="/dashboard" data-nav>Batal</a><button class="btn btn-primary" type="submit">Kirim permintaan</button></div></form></section>`);
@@ -236,6 +238,7 @@ async function renderAssignmentDetail(assignmentId, notice = '') {
 
 async function renderDeliveryDetail(deliveryId) {
   const token = ++renderToken;
+  clearInterval(pollTimer);
   activeContext = {};
   app.innerHTML = shell(`${pageHeading('Detail pengantaran', 'Memuat status dan histori lokasi...')}${skeletons(2)}`);
   try {
@@ -271,6 +274,7 @@ async function renderIssues() {
 
 async function renderIssueDetail(issueId) {
   const token = ++renderToken;
+  clearInterval(pollTimer);
   app.innerHTML = shell(`${pageHeading('Detail kendala', 'Memuat laporan...')}${skeletons(2)}`);
   try {
     const result = await api.getIssue(issueId);
