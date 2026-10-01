@@ -18,9 +18,10 @@ async function getPaymentById(paymentId, actor, db = getPool()) {
   }
 
   const result = await db.query(
-    `SELECT ${columns}
+    `SELECT ${columns}, r.requester_id
      FROM public.payments p
      JOIN public.assignments a ON a.assignment_id = p.assignment_id
+     JOIN public.requests r ON r.request_id = a.request_id
      WHERE p.payment_id = $1`,
     [paymentId]
   );

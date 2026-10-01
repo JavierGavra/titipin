@@ -66,13 +66,12 @@ function mayCreateOffer(actor) {
 }
 
 function mayCreatePayment(actor, assignmentRow) {
-  return Boolean(assignmentRow) && actor.kind === 'user' && actor.role === 'requester'
-    && actor.accountId !== null;
+  return Boolean(assignmentRow) && isRequester(actor, assignmentRow);
 }
 
 function mayReadPayment(actor, row) {
   if (!row) return false;
-  if (actor.kind === 'user' && actor.role === 'requester' && actor.accountId !== null) return true;
+  if (actor.kind === 'user' && actor.role === 'requester' && actor.accountId === row.requester_id) return true;
   if (actor.kind === 'user' && actor.role === 'jastiper'
       && actor.verificationStatus === 'verified'
       && actor.accountId === row.assigned_jastiper_id) return true;

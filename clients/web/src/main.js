@@ -110,7 +110,7 @@ async function renderDashboard() {
   const detail = role === 'jastiper' ? 'Pilih permintaan yang dapat kamu penuhi dan ajukan penawaran.' : role === 'admin' ? 'Pantau kendala transaksi dan tindak lanjuti kasus yang terbuka.' : 'Pantau permintaan belanja lokal dari satu tempat.';
   app.innerHTML = shell(`${pageHeading(title, detail, role === 'requester' ? '<a class="btn btn-primary" href="/requests/new" data-nav>Buat permintaan</a>' : '')}${skeletons(3)}`);
   try {
-    const result = role === 'admin' ? await api.listIssues({ conditional: true }) : await api.listRequests({ status: role === 'jastiper' ? 'open' : undefined, conditional: true });
+    const result = role === 'admin' ? await api.listIssues({ conditional: true }) : await api.listRequests({ conditional: true });
     if (token !== renderToken) return;
     dashboardSnapshot = { role, result, stale: false };
     renderDashboardContent();
@@ -136,7 +136,22 @@ function renderDashboardContent() {
   } else if (role === 'admin') {
     body = `<div class="table-wrap"><table><thead><tr><th>Status</th><th>Kategori</th><th>Deskripsi</th><th>Dibuat</th><th></th></tr></thead><tbody>${data.items.map((issue) => `<tr><td>${badge(issue.status)}</td><td>${escapeHtml(issue.category)}</td><td>${escapeHtml(issue.description)}</td><td>${escapeHtml(formatDate(issue.createdAt))}</td><td><a class="btn btn-secondary btn-small" href="/issues/${encodeURIComponent(issue.issueId)}" data-nav>Lihat</a></td></tr>`).join('')}</tbody></table></div>`;
   } else {
-    body = `<div class="card-grid">${data.items.map((item) => `<a class="card card-link" href="/requests/${encodeURIComponent(item.requestId)}" data-nav><div class="actions" style="justify-content:space-between"><span class="badge">${escapeHtml(item.requestId)}</span>${badge(item.status)}</div><h2>${escapeHtml(item.itemDescription)}</h2><p>${escapeHtml(item.quantity)} unit · ${escapeHtml(item.targetStoreOrArea)}</p><dl class="metric"><dt>Anggaran</dt><dd>${formatMoney(item.budget)}</dd></dl><dl class="metric"><dt>Batas waktu</dt><dd>${escapeHtml(formatDate(item.deadline))}</dd></dl></a>`).join('')}</div>`;
+    body = `<div class="card-grid">${data.items.map((item) => {
+      const asgId = item.assignmentId || localStorage.getItem('titipin.asg.' + item.requestId);
+      return `<a class="card card-link" href="/requests/${encodeURIComponent(item.requestId)}" data-nav>
+        <div class="actions" style="justify-content:space-between">
+          <span class="badge">${escapeHtml(item.requestId)}</span>
+          <div style="display:flex;gap:0.4rem;align-items:center;">
+            ${asgId ? `<span class="badge" style="background:#e0f2fe;color:#0369a1;">Penugasan Ada</span>` : ''}
+            ${badge(item.status)}
+          </div>
+        </div>
+        <h2>${escapeHtml(item.itemDescription)}</h2>
+        <p>${escapeHtml(item.quantity)} unit · ${escapeHtml(item.targetStoreOrArea)}</p>
+        <dl class="metric"><dt>Anggaran</dt><dd>${formatMoney(item.budget)}</dd></dl>
+        <dl class="metric"><dt>Batas waktu</dt><dd>${escapeHtml(formatDate(item.deadline))}</dd></dl>
+      </a>`;
+    }).join('')}</div>`;
   }
   app.innerHTML = shell(`${pageHeading(title, detail, role === 'requester' ? '<a class="btn btn-primary" href="/requests/new" data-nav>Buat permintaan</a>' : '')}${staleBanner}${body}<p class="footer-note">${escapeHtml(fetched)} · Daftar diperbarui otomatis setiap 15 detik.</p>`);
 }
@@ -147,7 +162,7 @@ async function refreshDashboard(token) {
     await auth.ensureFreshSession();
     const result = dashboardSnapshot.role === 'admin'
       ? await api.listIssues({ conditional: true })
-      : await api.listRequests({ status: dashboardSnapshot.role === 'jastiper' ? 'open' : undefined, conditional: true });
+      : await api.listRequests({ conditional: true });
     if (token !== renderToken) return;
     dashboardSnapshot = { ...dashboardSnapshot, result, stale: false };
     renderDashboardContent();
@@ -209,10 +224,32 @@ function renderRequestDetailContent(requestId, request, offersPage, notice = '')
   const session = auth.getSession();
   const role = session?.user?.role;
   const offers = offersPage?.items || [];
+  const knownAssignmentId = request.assignmentId || localStorage.getItem('titipin.asg.' + requestId) || null;
   const offerSection = offers.length ? `<div class="stack">${offers.map((offer) => `<article class="offer"><div><h3>${formatMoney(offer.totalAmount)} · ${badge(offer.status)}</h3><p>Harga barang ${formatMoney(offer.itemPrice)} · Jasa ${formatMoney(offer.serviceFee)} · Antar ${formatMoney(offer.deliveryFee)}</p><p>${escapeHtml(offer.note || 'Tidak ada catatan tambahan.')} · tiba ${escapeHtml(formatDate(offer.estimatedArrivalAt))}</p></div>${role === 'requester' && request.status === 'open' && offer.status === 'active' ? `<button class="btn btn-primary btn-small" data-action="select-offer" data-offer-id="${escapeHtml(offer.offerId)}">Pilih penawaran</button>` : ''}</article>`).join('')}</div>` : stateEmpty('Belum ada penawaran.', role === 'jastiper' ? 'Jadilah penawar pertama untuk permintaan ini.' : 'Jastiper akan melihat permintaan ini dan mengirimkan penawaran.');
   const offerForm = role === 'jastiper' && request.status === 'open' ? `<section class="card"><h2>Ajukan penawaran</h2><p>Semua nominal adalah IDR. Service akan memvalidasi kembali data ini.</p><form id="offer-form" novalidate><div class="form-grid"><div class="field" data-field="itemPrice"><label>Harga barang</label><input name="itemPrice" type="number" min="0" required><div class="field-error"></div></div><div class="field" data-field="serviceFee"><label>Biaya jasa</label><input name="serviceFee" type="number" min="0" required><div class="field-error"></div></div><div class="field" data-field="deliveryFee"><label>Biaya antar</label><input name="deliveryFee" type="number" min="0" required><div class="field-error"></div></div><div class="field" data-field="estimatedArrivalAt"><label>Perkiraan tiba</label><input name="estimatedArrivalAt" type="datetime-local" required><div class="field-error"></div></div><div class="field" data-field="stockCheckedAt"><label>Stok dicek pada</label><input name="stockCheckedAt" type="datetime-local" required><div class="field-error"></div></div><div class="field" data-field="expiresAt"><label>Penawaran berlaku sampai</label><input name="expiresAt" type="datetime-local" required><div class="field-error"></div></div><div class="field full" data-field="note"><label>Catatan (opsional)</label><textarea name="note" maxlength="500"></textarea><div class="field-error"></div></div></div><button class="btn btn-primary" type="submit">Kirim penawaran</button></form></section>` : '';
   const noticeHtml = notice ? `<div class="stale" role="status"><span>${escapeHtml(notice)}</span><button class="btn btn-secondary btn-small" data-action="reload-request">Muat ulang</button></div>` : '';
-  app.innerHTML = shell(`${pageHeading('Detail permintaan', request.itemDescription, '<a class="btn btn-secondary" href="/dashboard" data-nav>Kembali</a>')}${noticeHtml}<div class="detail-layout"><div class="stack"><section class="card"><div class="actions" style="justify-content:space-between"><span class="badge">${escapeHtml(request.requestId)}</span>${badge(request.status)}</div><h2>${escapeHtml(request.itemDescription)}</h2><p>${escapeHtml(request.quantity)} unit untuk ${escapeHtml(request.targetStoreOrArea)}</p><dl class="metric"><dt>Anggaran</dt><dd>${formatMoney(request.budget)}</dd></dl><dl class="metric"><dt>Batas waktu</dt><dd>${escapeHtml(formatDate(request.deadline))}</dd></dl>${request.deliveryAddress ? `<dl class="metric"><dt>Alamat pengantaran</dt><dd>${escapeHtml(request.deliveryAddress)}</dd></dl>` : ''}</section><section class="card"><h2>Penawaran</h2>${offerSection}</section>${offerForm}</div><aside class="stack"><section class="card"><h2>Alur transaksi</h2><div class="timeline"><div class="timeline-item"><strong>Permintaan dibuat</strong><span>${escapeHtml(formatDate(request.createdAt))}</span></div><div class="timeline-item"><strong>Status ${escapeHtml(statusLabel(request.status))}</strong><span>Pembaruan terakhir ${escapeHtml(formatDate(request.updatedAt))}</span></div></div></section><section class="card"><h2>Perlindungan transaksi</h2><p>Setiap tindakan mengirim idempotency key. Perubahan bersamaan memakai ETag agar data rekan kerja tidak tertimpa.</p></section></aside></div>`);
+
+  let actionBanner = '';
+  if (request.status === 'assigned') {
+    if (role === 'requester') {
+      actionBanner = `<div class="stale" style="background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;" role="status">
+        <div><strong>Penawaran Telah Dipilih!</strong><p style="margin:0.25rem 0 0 0;">Lanjutkan ke tahap pembayaran pesanan agar Jastiper dapat segera membelikan pesanan Anda.</p></div>
+        ${knownAssignmentId ? `<a class="btn btn-primary btn-small" href="/assignments/${encodeURIComponent(knownAssignmentId)}" data-nav>Bayar Pesanan Sekarang</a>` : ''}
+      </div>`;
+    } else if (role === 'jastiper') {
+      actionBanner = `<div class="stale" style="background:#f0fdf4;border:1px solid #86efac;color:#166534;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;" role="status">
+        <div><strong>Penawaran Anda Telah Dipilih!</strong><p style="margin:0.25rem 0 0 0;">Pemesan telah menyetujui tawaran Anda. Buka halaman penugasan untuk memantau pembayaran dan mulai pengantaran.</p></div>
+        ${knownAssignmentId ? `<a class="btn btn-primary btn-small" href="/assignments/${encodeURIComponent(knownAssignmentId)}" data-nav>Buka Halaman Penugasan</a>` : ''}
+      </div>`;
+    }
+  } else if (request.status === 'completed') {
+    actionBanner = `<div class="stale" style="background:#f0fdf4;border:1px solid #86efac;color:#166534;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;" role="status">
+      <div><strong>Transaksi Selesai</strong><p style="margin:0.25rem 0 0 0;">Barang belanjaan telah berhasil diantar dan diterima oleh pemesan.</p></div>
+      ${knownAssignmentId ? `<a class="btn btn-secondary btn-small" href="/assignments/${encodeURIComponent(knownAssignmentId)}" data-nav>Lihat Penugasan</a>` : ''}
+    </div>`;
+  }
+
+  app.innerHTML = shell(`${pageHeading('Detail permintaan', request.itemDescription, '<a class="btn btn-secondary" href="/dashboard" data-nav>Kembali</a>')}${noticeHtml}${actionBanner}<div class="detail-layout"><div class="stack"><section class="card"><div class="actions" style="justify-content:space-between"><span class="badge">${escapeHtml(request.requestId)}</span><div style="display:flex;gap:0.5rem;align-items:center;">${knownAssignmentId ? `<a href="/assignments/${encodeURIComponent(knownAssignmentId)}" class="btn btn-primary btn-small" data-nav>Buka Penugasan</a>` : ''}${badge(request.status)}</div></div><h2>${escapeHtml(request.itemDescription)}</h2><p>${escapeHtml(request.quantity)} unit untuk ${escapeHtml(request.targetStoreOrArea)}</p><dl class="metric"><dt>Anggaran</dt><dd>${formatMoney(request.budget)}</dd></dl><dl class="metric"><dt>Batas waktu</dt><dd>${escapeHtml(formatDate(request.deadline))}</dd></dl>${request.deliveryAddress ? `<dl class="metric"><dt>Alamat pengantaran</dt><dd>${escapeHtml(request.deliveryAddress)}</dd></dl>` : ''}${request.requesterId ? `<dl class="metric"><dt>Pemesan (Internal)</dt><dd>${escapeHtml(request.requesterId)}</dd></dl>` : ''}${request.assignedJastiperId ? `<dl class="metric"><dt>Jastiper (Internal)</dt><dd>${escapeHtml(request.assignedJastiperId)}</dd></dl>` : ''}</section><section class="card"><h2>Penawaran</h2>${offerSection}</section>${offerForm}</div><aside class="stack"><section class="card"><h2>Alur transaksi</h2><div class="timeline"><div class="timeline-item"><strong>Permintaan dibuat</strong><span>${escapeHtml(formatDate(request.createdAt))}</span></div><div class="timeline-item"><strong>Status ${escapeHtml(statusLabel(request.status))}</strong><span>Pembaruan terakhir ${escapeHtml(formatDate(request.updatedAt))}</span></div></div></section><section class="card"><h2>Perlindungan transaksi</h2><p>Setiap tindakan mengirim idempotency key. Perubahan bersamaan memakai ETag agar data rekan kerja tidak tertimpa.</p></section></aside></div>`);
 }
 
 async function renderAssignmentDetail(assignmentId, notice = '') {
@@ -226,13 +263,21 @@ async function renderAssignmentDetail(assignmentId, notice = '') {
     activeContext = { assignment: result.data, assignmentEtag: result.etag };
     const role = auth.getSession()?.user?.role;
     const assignment = result.data;
+    if (assignment.requestId) {
+      try { localStorage.setItem('titipin.asg.' + assignment.requestId, assignment.assignmentId); } catch {}
+    }
     const paymentForm = role === 'requester' && ['active', 'assigned'].includes(assignment.status) ? `<section class="card"><h2>Bayar pesanan</h2><p>Pilih simulasi pembayaran. Nominal final dihitung service dari penawaran.</p><form id="payment-form"><div class="field"><label for="paymentMethod">Metode</label><select id="paymentMethod" name="method"><option value="simulated_bank_transfer">Transfer bank simulasi</option><option value="simulated_card">Kartu simulasi</option></select></div><button class="btn btn-primary" type="submit">Bayar sekarang</button></form></section>` : '';
-    const deliveryForm = role === 'jastiper' && ['active', 'purchased'].includes(assignment.status) ? `<section class="card"><h2>Mulai pengantaran</h2><p>Catat waktu barang dibeli sebelum membuat delivery.</p><form id="delivery-form"><div class="field" data-field="purchaseRecordedAt"><label for="purchaseRecordedAt">Waktu pembelian</label><input id="purchaseRecordedAt" name="purchaseRecordedAt" type="datetime-local" required><div class="field-error"></div></div><button class="btn btn-primary" type="submit">Buat delivery</button></form></section>` : '';
+    const requesterPaidCard = role === 'requester' && assignment.status === 'purchased' ? `<section class="card" style="background:#f0fdf4;border:1px solid #86efac;"><h2 style="color:#166534;">Pembayaran Berhasil</h2><p>Pembayaran pesanan telah dikonfirmasi (status: <strong>purchased</strong>). Saat ini menunggu jastiper membeli barang dan memulai pengantaran.</p></section>` : '';
+    const deliveryForm = role === 'jastiper' && ['active', 'purchased'].includes(assignment.status) ? (assignment.status === 'active' ? `<section class="card"><h2>Menunggu Pembayaran</h2><p>Pemesan belum menyelesaikan pembayaran. Anda baru bisa memulai pengantaran setelah status menjadi purchased.</p></section>` : `<section class="card"><h2>Mulai pengantaran</h2><p>Catat waktu barang dibeli sebelum membuat delivery.</p><form id="delivery-form"><div class="field" data-field="purchaseRecordedAt"><label for="purchaseRecordedAt">Waktu pembelian</label><input id="purchaseRecordedAt" name="purchaseRecordedAt" type="datetime-local" required><div class="field-error"></div></div><button class="btn btn-primary" type="submit">Buat delivery</button></form></section>`) : '';
     const noticeHtml = notice ? `<div class="stale" role="status"><span>${escapeHtml(notice)}</span><button class="btn btn-secondary btn-small" data-action="reload-assignment">Muat ulang</button></div>` : '';
-    app.innerHTML = shell(`${pageHeading('Detail penugasan', `Penugasan ${assignment.assignmentId}`, '<a class="btn btn-secondary" href="/dashboard" data-nav>Kembali</a>')}${noticeHtml}<div class="detail-layout"><div class="stack"><section class="card"><div class="actions" style="justify-content:space-between"><span class="badge">${escapeHtml(assignment.assignmentId)}</span>${badge(assignment.status)}</div><dl class="metric"><dt>Request</dt><dd><a href="/requests/${encodeURIComponent(assignment.requestId)}" data-nav>${escapeHtml(assignment.requestId)}</a></dd></dl><dl class="metric"><dt>Offer</dt><dd>${escapeHtml(assignment.offerId)}</dd></dl><dl class="metric"><dt>Jastiper</dt><dd>${escapeHtml(assignment.assignedJastiperId)}</dd></dl><dl class="metric"><dt>Diperbarui</dt><dd>${escapeHtml(formatDate(assignment.updatedAt))}</dd></dl></section>${paymentForm}${deliveryForm}</div><aside class="stack"><section class="card"><h2>Catatan</h2><p>Status penugasan dibaca dari service. Refresh halaman tetap memuat data yang sama dari URL ini.</p></section></aside></div>`);
+    app.innerHTML = shell(`${pageHeading('Detail penugasan', `Penugasan ${assignment.assignmentId}`, '<a class="btn btn-secondary" href="/dashboard" data-nav>Kembali</a>')}${noticeHtml}<div class="detail-layout"><div class="stack"><section class="card"><div class="actions" style="justify-content:space-between"><span class="badge">${escapeHtml(assignment.assignmentId)}</span>${badge(assignment.status)}</div><dl class="metric"><dt>Request</dt><dd><a href="/requests/${encodeURIComponent(assignment.requestId)}" data-nav>${escapeHtml(assignment.requestId)}</a></dd></dl><dl class="metric"><dt>Offer</dt><dd>${escapeHtml(assignment.offerId)}</dd></dl><dl class="metric"><dt>Jastiper</dt><dd>${escapeHtml(assignment.assignedJastiperId)}</dd></dl><dl class="metric"><dt>Diperbarui</dt><dd>${escapeHtml(formatDate(assignment.updatedAt))}</dd></dl></section>${paymentForm}${requesterPaidCard}${deliveryForm}</div><aside class="stack"><section class="card"><h2>Catatan</h2><p>Status penugasan dibaca dari service. Refresh halaman tetap memuat data yang sama dari URL ini.</p></section></aside></div>`);
   } catch (problem) {
     if (token !== renderToken) return;
-    app.innerHTML = shell(`${pageHeading('Detail penugasan', 'Data penugasan')}${problem.status === 404 ? notFoundState() : stateError(problem, 'retry-assignment')}`);
+    if (problem.status === 404) {
+      app.innerHTML = shell(`${pageHeading('Detail penugasan', 'Data penugasan')}<section class="card empty"><div class="empty-icon" aria-hidden="true"></div><h2>Data tidak ditemukan atau belum memiliki izin</h2><p>${escapeHtml(problem.detail || 'Data ini tidak tersedia atau tidak dapat ditampilkan untuk akun yang sedang masuk.')}</p><div class="actions"><button class="btn btn-primary" data-action="retry-assignment">Coba lagi</button><a class="btn btn-secondary" href="/dashboard" data-nav>Kembali ke beranda</a></div></section>`);
+    } else {
+      app.innerHTML = shell(`${pageHeading('Detail penugasan', 'Data penugasan')}${stateError(problem, 'retry-assignment')}`);
+    }
   }
 }
 
@@ -307,8 +352,13 @@ async function submitOffer(form) {
 
 async function submitPayment(form) {
   const submit = form.querySelector('button[type="submit"]'); submit.disabled = true;
-  try { const result = await api.createPayment(activeContext.assignment.assignmentId, form.elements.method.value, activeContext.assignmentEtag); const payment = result.data; form.insertAdjacentHTML('afterend', `<div class="stale" role="status">Pembayaran ${escapeHtml(payment.status)} berhasil dibuat. ID pembayaran: ${escapeHtml(payment.paymentId)}.</div>`); submit.remove(); }
-  catch (problem) { setFormErrors(form, problem); submit.disabled = false; if (problem.status === 412) await renderAssignmentDetail(activeContext.assignment.assignmentId, problem.detail); }
+  try {
+    const result = await api.createPayment(activeContext.assignment.assignmentId, form.elements.method.value, activeContext.assignmentEtag);
+    await renderAssignmentDetail(activeContext.assignment.assignmentId, `Pembayaran ${escapeHtml(result.data.status)} berhasil dibuat.`);
+  } catch (problem) {
+    setFormErrors(form, problem); submit.disabled = false;
+    if (problem.status === 412) await renderAssignmentDetail(activeContext.assignment.assignmentId, problem.detail);
+  }
 }
 
 async function submitDelivery(form) {
@@ -368,8 +418,19 @@ async function handleClick(event) {
   if (action === 'reload-assignment') { const id = window.location.pathname.split('/')[2]; return renderAssignmentDetail(decodeURIComponent(id)); }
   if (action === 'select-offer') {
     button.disabled = true;
-    try { const result = await api.selectOffer(activeContext.request.requestId, button.dataset.offerId, activeContext.requestEtag); navigate(`/assignments/${encodeURIComponent(result.data.assignmentId)}`); }
-    catch (problem) { if (problem.status === 412) await renderRequestDetail(activeContext.request.requestId, problem.detail); else button.disabled = false; }
+    try {
+      const result = await api.selectOffer(activeContext.request.requestId, button.dataset.offerId, activeContext.requestEtag);
+      const asgId = result.data.assignmentId;
+      if (asgId) {
+        try { localStorage.setItem('titipin.asg.' + activeContext.request.requestId, asgId); } catch {}
+        navigate(`/assignments/${encodeURIComponent(asgId)}`);
+      } else {
+        await renderRequestDetail(activeContext.request.requestId, 'Penawaran berhasil dipilih.');
+      }
+    } catch (problem) {
+      if (problem.status === 412) await renderRequestDetail(activeContext.request.requestId, problem.detail);
+      else { alert(problem.detail || 'Gagal memilih penawaran'); button.disabled = false; }
+    }
   }
 }
 

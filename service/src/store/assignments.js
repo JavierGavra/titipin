@@ -10,12 +10,14 @@ const columns = `
 async function getAssignmentById(assignmentId, actor) {
   const params = actor ? [assignmentId, actor.issuer, actor.subject] : [assignmentId, null, null];
   const result = await getPool().query(
-    `SELECT ${columns},
+    `SELECT a.assignment_id, a.request_id, a.offer_id, a.assigned_jastiper_id,
+       a.status, a.assigned_at, a.purchase_recorded_at, a.completed_at, a.updated_at,
+       r.requester_id,
        EXISTS (SELECT 1 FROM public.request_access ra
-         JOIN public.assignments a2 ON a2.request_id = ra.request_id
-         WHERE a2.assignment_id = $1 AND ra.issuer = $2 AND ra.subject = $3) AS operational_access
-     FROM public.assignments
-     WHERE assignment_id = $1`,
+         WHERE ra.request_id = a.request_id AND ra.issuer = $2 AND ra.subject = $3) AS operational_access
+     FROM public.assignments a
+     JOIN public.requests r ON r.request_id = a.request_id
+     WHERE a.assignment_id = $1`,
     params
   );
 

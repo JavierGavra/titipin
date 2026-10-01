@@ -16,6 +16,7 @@ async function getRequestById(requestId, actor, db = getPool(), lock = false) {
        r.status,
        a.offer_id AS selected_offer_id,
        a.assigned_jastiper_id,
+       a.assignment_id,
        r.created_at,
        r.updated_at,
        EXISTS (SELECT 1 FROM public.request_access ra
@@ -45,6 +46,7 @@ async function listRequests(actor, { status, limit, offset }) {
        r.status,
        a.offer_id AS selected_offer_id,
        a.assigned_jastiper_id,
+       a.assignment_id,
        r.created_at,
        r.updated_at,
        EXISTS (SELECT 1 FROM public.request_access ra
@@ -105,6 +107,7 @@ async function createRequest(client, { requesterId, body }) {
   // Newly created requests have no assignment yet; add null fields expected by toRequest.
   row.selected_offer_id = null;
   row.assigned_jastiper_id = null;
+  row.assignment_id = null;
   row.operational_access = false;
   return row;
 }

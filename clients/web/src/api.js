@@ -109,11 +109,13 @@ async function request(path, options = {}, retry = true) {
       redirect: 'error',
     });
   } catch (error) {
+    if (error instanceof ProblemError) throw error;
     if (savedEtag && method === 'GET' && retry) {
       etags.delete(cacheKey);
       return request(path, { ...options, conditional: false }, false);
     }
-    throw new ProblemError({ status: 0, title: 'Koneksi gagal', detail: 'Layanan Titipin tidak dapat dijangkau. Periksa koneksi lalu coba lagi.' });
+    const reason = error?.message ? ` (${error.message})` : '';
+    throw new ProblemError({ status: 0, title: 'Koneksi gagal', detail: `Layanan Titipin tidak dapat dijangkau${reason}. Periksa koneksi lalu coba lagi.` });
   }
 
   if (response.status === 401 && retry) {
