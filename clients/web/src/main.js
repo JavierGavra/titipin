@@ -266,7 +266,7 @@ async function renderAssignmentDetail(assignmentId, notice = '') {
     if (assignment.requestId) {
       try { localStorage.setItem('titipin.asg.' + assignment.requestId, assignment.assignmentId); } catch {}
     }
-    const paymentForm = role === 'requester' && ['active', 'assigned'].includes(assignment.status) ? `<section class="card"><h2>Bayar pesanan</h2><p>Pilih simulasi pembayaran. Nominal final dihitung service dari penawaran.</p><form id="payment-form"><div class="field"><label for="paymentMethod">Metode</label><select id="paymentMethod" name="method"><option value="simulated_bank_transfer">Transfer bank simulasi</option><option value="simulated_card">Kartu simulasi</option></select></div><button class="btn btn-primary" type="submit">Bayar sekarang</button></form></section>` : '';
+    const paymentForm = role === 'requester' && ['active', 'assigned'].includes(assignment.status) ? `<section class="card"><h2>Bayar pesanan</h2><p>Pilih simulasi pembayaran. Nominal final dihitung service dari penawaran.</p><form id="payment-form"><div class="field"><label for="paymentMethod">Metode</label><select id="paymentMethod" name="method"><option value="simulated_card">Kartu simulasi (Berhasil)</option><option value="simulated_bank_transfer">Transfer bank simulasi (Uji Skenario Ditolak)</option></select></div><button class="btn btn-primary" type="submit">Bayar sekarang</button></form></section>` : '';
     const requesterPaidCard = role === 'requester' && assignment.status === 'purchased' ? `<section class="card" style="background:#f0fdf4;border:1px solid #86efac;"><h2 style="color:#166534;">Pembayaran Berhasil</h2><p>Pembayaran pesanan telah dikonfirmasi (status: <strong>purchased</strong>). Saat ini menunggu jastiper membeli barang dan memulai pengantaran.</p></section>` : '';
     const deliveryForm = role === 'jastiper' && ['active', 'purchased'].includes(assignment.status) ? (assignment.status === 'active' ? `<section class="card"><h2>Menunggu Pembayaran</h2><p>Pemesan belum menyelesaikan pembayaran. Anda baru bisa memulai pengantaran setelah status menjadi purchased.</p></section>` : `<section class="card"><h2>Mulai pengantaran</h2><p>Catat waktu barang dibeli sebelum membuat delivery.</p><form id="delivery-form"><div class="field" data-field="purchaseRecordedAt"><label for="purchaseRecordedAt">Waktu pembelian</label><input id="purchaseRecordedAt" name="purchaseRecordedAt" type="datetime-local" required><div class="field-error"></div></div><button class="btn btn-primary" type="submit">Buat delivery</button></form></section>`) : '';
     const noticeHtml = notice ? `<div class="stale" role="status"><span>${escapeHtml(notice)}</span><button class="btn btn-secondary btn-small" data-action="reload-assignment">Muat ulang</button></div>` : '';
@@ -351,21 +351,36 @@ async function submitOffer(form) {
 }
 
 async function submitPayment(form) {
-  const submit = form.querySelector('button[type="submit"]'); submit.disabled = true;
+  const submit = form.querySelector('button[type="submit"]');
+  submit.disabled = true;
+  const originalText = submit.textContent;
+  submit.textContent = 'Memproses pembayaran...';
   try {
     const result = await api.createPayment(activeContext.assignment.assignmentId, form.elements.method.value, activeContext.assignmentEtag);
     await renderAssignmentDetail(activeContext.assignment.assignmentId, `Pembayaran ${escapeHtml(result.data.status)} berhasil dibuat.`);
   } catch (problem) {
-    setFormErrors(form, problem); submit.disabled = false;
+    setFormErrors(form, problem);
+    submit.disabled = false;
+    submit.textContent = originalText;
     if (problem.status === 412) await renderAssignmentDetail(activeContext.assignment.assignmentId, problem.detail);
   }
 }
 
 async function submitDelivery(form) {
   if (!validateRequired(form, [['purchaseRecordedAt', 'Waktu pembelian wajib diisi.']])) return;
-  const submit = form.querySelector('button[type="submit"]'); submit.disabled = true;
-  try { const result = await api.createDelivery(activeContext.assignment.assignmentId, isoFromInput(form.elements.purchaseRecordedAt.value), activeContext.assignmentEtag); navigate(`/deliveries/${encodeURIComponent(result.data.deliveryId)}`); }
-  catch (problem) { setFormErrors(form, problem); submit.disabled = false; if (problem.status === 412) await renderAssignmentDetail(activeContext.assignment.assignmentId, problem.detail); }
+  const submit = form.querySelector('button[type="submit"]');
+  submit.disabled = true;
+  const originalText = submit.textContent;
+  submit.textContent = 'Membuat pengantaran...';
+  try {
+    const result = await api.createDelivery(activeContext.assignment.assignmentId, isoFromInput(form.elements.purchaseRecordedAt.value), activeContext.assignmentEtag);
+    navigate(`/deliveries/${encodeURIComponent(result.data.deliveryId)}`);
+  } catch (problem) {
+    setFormErrors(form, problem);
+    submit.disabled = false;
+    submit.textContent = originalText;
+    if (problem.status === 412) await renderAssignmentDetail(activeContext.assignment.assignmentId, problem.detail);
+  }
 }
 
 async function submitLocation(form) {
